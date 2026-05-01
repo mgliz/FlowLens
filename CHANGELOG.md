@@ -2,7 +2,7 @@
 
 ## 1.0.1 - 2026-05-01
 
-- Fixed per-PID traffic snapshot keys to avoid cross-process counter mixing for shared executables such as `svchost`.
+- Fixed per-PID traffic snapshot keys to avoid cross-process counter mixing for shared executables.
 - Excluded local loopback and local-to-local traffic by default to better match external adapter throughput.
 - Fixed rate calculation to use the actual sampling interval.
 - Ignored unknown process records when loading or persisting history.
