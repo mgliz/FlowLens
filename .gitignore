@@ -1,0 +1,21 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build and release artifacts
+artifacts/
+*.zip
+*.nupkg
+
+# Logs and local runtime data
+*.log
+crash.log
+
+# OS files
+Thumbs.db
+Desktop.ini

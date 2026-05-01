@@ -1,0 +1,84 @@
+<Window x:Class="FlowLens.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About FlowLens" Height="430" Width="560" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="#0F172A" FontFamily="Microsoft YaHei UI"
+        Icon="Assets/FlowLens.ico">
+    <Window.Resources>
+        <SolidColorBrush x:Key="TextBrush" Color="#E5EDF7"/>
+        <SolidColorBrush x:Key="MutedBrush" Color="#9AABC1"/>
+        <SolidColorBrush x:Key="LineBrush" Color="#2A3750"/>
+        <SolidColorBrush x:Key="PanelBrush" Color="#172033"/>
+        <SolidColorBrush x:Key="InputBrush" Color="#101827"/>
+        <SolidColorBrush x:Key="ButtonBrush" Color="#26354D"/>
+        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#344761"/>
+        <SolidColorBrush x:Key="GridRowBrush" Color="#141D2F"/>
+        <SolidColorBrush x:Key="GridAltRowBrush" Color="#172238"/>
+        <SolidColorBrush x:Key="GridHeaderBrush" Color="#1E2A40"/>
+        <SolidColorBrush x:Key="ComboPanelBrush" Color="#101827"/>
+        <SolidColorBrush x:Key="ComboTextBrush" Color="#E5EDF7"/>
+        <SolidColorBrush x:Key="ComboHoverBrush" Color="#26354D"/>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="MinWidth" Value="86"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
+            <Image Source="pack://application:,,,/Assets/FlowLens.png" Width="46" Height="46" Margin="0,0,14,0"/>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="TitleText" FontSize="24" FontWeight="SemiBold"/>
+                <TextBlock x:Name="SubtitleText" Foreground="{DynamicResource MutedBrush}" Margin="0,5,0,0"/>
+            </StackPanel>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="8" Padding="18">
+            <StackPanel>
+                <TextBlock x:Name="VersionText" FontWeight="SemiBold"/>
+                <TextBlock x:Name="FeatureText" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,14,0,0"/>
+                <TextBlock x:Name="RuntimeText" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,10,0,0"/>
+
+                <Grid Margin="0,18,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="DataLabelText" Foreground="{DynamicResource MutedBrush}"/>
+                    <TextBlock x:Name="DataPathText" Grid.Column="1" TextWrapping="Wrap"/>
+                </Grid>
+
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="LicenseLabelText" Foreground="{DynamicResource MutedBrush}"/>
+                    <TextBlock x:Name="LicenseText" Grid.Column="1"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <DockPanel Grid.Row="2" Margin="0,18,0,0">
+            <TextBlock x:Name="AiNoteText" DockPanel.Dock="Left" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
+            <Button x:Name="CloseButton" DockPanel.Dock="Right" HorizontalAlignment="Right" IsDefault="True" Click="CloseButton_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>
