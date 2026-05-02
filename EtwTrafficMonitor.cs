@@ -129,6 +129,8 @@ public sealed class EtwTrafficMonitor : IDisposable
 
         lock (_gate)
         {
+            PruneStaleCounters(now);
+
             var elapsedSeconds = Math.Max(0.001, (now - _lastSnapshotTime).TotalSeconds);
             _lastSnapshotTime = now;
 
@@ -173,6 +175,22 @@ public sealed class EtwTrafficMonitor : IDisposable
                 .OrderByDescending(item => item.Ipv4ReceiveRate + item.Ipv4SendRate + item.Ipv6ReceiveRate + item.Ipv6SendRate)
                 .ThenBy(item => item.ProcessName, StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
+        }
+    }
+
+    private void PruneStaleCounters(DateTime now)
+    {
+        var stalePids = _counters
+            .Where(pair => now - pair.Value.LastSeen >= TimeSpan.FromMinutes(10))
+            .Select(pair => pair.Key)
+            .ToList();
+
+        foreach (var pid in stalePids)
+        {
+            _counters.Remove(pid);
+            _recentIpv4Flows.Remove(pid);
+            _recentIpv6Flows.Remove(pid);
+            _processCache.TryRemove(pid, out _);
         }
     }
 

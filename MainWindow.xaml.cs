@@ -13,6 +13,7 @@ namespace FlowLens;
 
 public partial class MainWindow : Window
 {
+    private static readonly TimeSpan StaleSnapshotAge = TimeSpan.FromMinutes(10);
     private readonly ObservableCollection<TrafficRow> _rows = [];
     private readonly Dictionary<string, TrafficRow> _rowMap = [];
     private readonly Dictionary<string, TrafficSnapshot> _liveSnapshots = [];
@@ -113,6 +114,7 @@ public partial class MainWindow : Window
 
     private void ApplySnapshot(MonitorSnapshotEventArgs e)
     {
+        var now = DateTime.Now;
         foreach (var snapshot in e.Snapshots)
         {
             var key = RawKeyFor(snapshot);
@@ -131,9 +133,33 @@ public partial class MainWindow : Window
             _liveSnapshots[key] = snapshot;
         }
 
+        PruneLiveSnapshots(now);
+        SaveHistoryIfNeeded(force: false);
+
+        if (IsUiRefreshSuppressed())
+        {
+            return;
+        }
+
         RebuildDisplayedRows();
         UpdateMetrics(e);
-        SaveHistoryIfNeeded(force: false);
+    }
+
+    private void PruneLiveSnapshots(DateTime now)
+    {
+        foreach (var staleKey in _liveSnapshots
+                     .Where(pair => now - pair.Value.LastSeen > StaleSnapshotAge)
+                     .Select(pair => pair.Key)
+                     .ToList())
+        {
+            _liveSnapshots.Remove(staleKey);
+            _previousRawSnapshots.Remove(staleKey);
+        }
+    }
+
+    private bool IsUiRefreshSuppressed()
+    {
+        return !IsVisible || WindowState == WindowState.Minimized;
     }
 
     private void RebuildDisplayedRows()
@@ -469,6 +495,8 @@ public partial class MainWindow : Window
         ShowInTaskbar = true;
         Show();
         WindowState = WindowState.Normal;
+        RebuildDisplayedRows();
+        UpdateMetrics(new MonitorSnapshotEventArgs([], 0, string.Empty));
         Activate();
     }
 

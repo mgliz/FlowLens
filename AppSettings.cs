@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Win32;
 
@@ -64,19 +65,73 @@ public sealed class AppSettings
 
     public void ApplyStartupRegistration()
     {
+        ClearRunRegistryRegistration();
+
+        if (StartWithWindows)
+        {
+            CreateStartupTask();
+        }
+        else
+        {
+            DeleteStartupTask();
+        }
+    }
+
+    private static void ClearRunRegistryRegistration()
+    {
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
         if (key is null)
         {
             return;
         }
 
-        if (StartWithWindows)
+        key.DeleteValue("FlowLens", false);
+    }
+
+    private static void CreateStartupTask()
+    {
+        var executablePath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executablePath))
         {
-            key.SetValue("FlowLens", $"\"{Environment.ProcessPath}\" --minimized");
+            return;
         }
-        else
+
+        RunSchtasks(
+            "/Create",
+            "/TN", "FlowLens",
+            "/SC", "ONLOGON",
+            "/TR", $"\"{executablePath}\" --minimized",
+            "/RL", "HIGHEST",
+            "/F");
+    }
+
+    private static void DeleteStartupTask()
+    {
+        RunSchtasks("/Delete", "/TN", "FlowLens", "/F");
+    }
+
+    private static void RunSchtasks(params string[] arguments)
+    {
+        try
         {
-            key.DeleteValue("FlowLens", false);
+            var startInfo = new ProcessStartInfo("schtasks.exe")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true
+            };
+
+            foreach (var argument in arguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+
+            using var process = Process.Start(startInfo);
+            process?.WaitForExit(5000);
+        }
+        catch
+        {
         }
     }
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 - 2026-05-02
+
+- Changed Windows startup registration to Task Scheduler with highest privileges, replacing the previous Run registry entry.
+- Reduced long-running background overhead by suppressing table refreshes while the window is hidden or minimized.
+- Pruned stale ETW counters, flow sets, and process cache entries after inactivity.
+
 ## 1.0.1 - 2026-05-01
 
 - Fixed per-PID traffic snapshot keys to avoid cross-process counter mixing for shared executables.

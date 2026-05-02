@@ -30,10 +30,10 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 
 ## Download
 
-Use the `v1.0.1` release package:
+Use the `v1.0.2` release package:
 
 ```text
-FlowLens-1.0.1-win-x64.zip
+FlowLens-1.0.2-win-x64.zip
 ```
 
 Unzip it and run `FlowLens.exe` as administrator.

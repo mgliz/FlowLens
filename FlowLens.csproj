@@ -9,9 +9,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\FlowLens.ico</ApplicationIcon>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
+    <Version>1.0.2</Version>
+    <AssemblyVersion>1.0.2.0</AssemblyVersion>
+    <FileVersion>1.0.2.0</FileVersion>
     <Authors>FlowLens contributors</Authors>
     <Description>Lightweight Windows per-process traffic monitor with IPv4, IPv6, TCP, and UDP statistics.</Description>
     <RepositoryUrl>https://github.com/mgliz/FlowLens</RepositoryUrl>
