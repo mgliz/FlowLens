@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore FlowLens.sln
+
+      - name: Build
+        run: dotnet build FlowLens.sln --configuration Release --no-restore
+
+      - name: Run regression suite
+        run: >-
+          dotnet
+          tests/FlowLens.RegressionTests/bin/Release/net8.0-windows/FlowLens.RegressionTests.dll

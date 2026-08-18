@@ -1,15 +1,38 @@
 using System.IO;
+using System.Globalization;
 using System.Text.Json;
 
 namespace FlowLens;
 
 public sealed class TrafficHistoryStore
 {
+    public const string UnattributedProcessName = "Unattributed";
+    public const string UnattributedPath = "flowlens://unattributed";
+    private readonly object _gate = new();
     private readonly Dictionary<string, ProcessTrafficHistory> _records = [];
 
-    public static string HistoryPath => Path.Combine(AppSettings.AppDataDir, "history.json");
+    public static string HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v6.json");
+    public static string PreviousHistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v5.json");
+    public static string PreviousV4HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v4.json");
+    public static string PreviousV3HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v3.json");
+    public static string PreviousV2HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v2.json");
+    public static string LegacyHistoryPath => Path.Combine(AppSettings.AppDataDir, "history.json");
+    public static bool HasLegacyHistory => File.Exists(PreviousHistoryPath)
+        || File.Exists(PreviousV4HistoryPath)
+        || File.Exists(PreviousV3HistoryPath)
+        || File.Exists(PreviousV2HistoryPath)
+        || File.Exists(LegacyHistoryPath);
 
-    public IEnumerable<ProcessTrafficHistory> Records => _records.Values;
+    public IEnumerable<ProcessTrafficHistory> Records
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _records.Values.Select(CloneRecord).ToList();
+            }
+        }
+    }
 
     public static TrafficHistoryStore Load()
     {
@@ -24,7 +47,26 @@ public sealed class TrafficHistoryStore
             var records = JsonSerializer.Deserialize<List<ProcessTrafficHistory>>(File.ReadAllText(HistoryPath)) ?? [];
             foreach (var record in records)
             {
-                if (!string.IsNullOrWhiteSpace(record.StableKey) && IsPersistable(record.ProcessName, record.Path))
+                if (!IsPersistable(record.ProcessName, record.Path))
+                {
+                    continue;
+                }
+
+                record.Buckets ??= [];
+                foreach (var invalidKey in record.Buckets
+                             .Where(pair => pair.Value is null)
+                             .Select(pair => pair.Key)
+                             .ToList())
+                {
+                    record.Buckets.Remove(invalidKey);
+                }
+
+                record.StableKey = TrafficStatsStore.KeyFor(record.ProcessName, record.Path);
+                if (store._records.TryGetValue(record.StableKey, out var existing))
+                {
+                    MergeRecord(existing, record);
+                }
+                else
                 {
                     store._records[record.StableKey] = record;
                 }
@@ -37,24 +79,105 @@ public sealed class TrafficHistoryStore
         return store;
     }
 
+    private static void MergeRecord(ProcessTrafficHistory target, ProcessTrafficHistory source)
+    {
+        if (source.LastSeen >= target.LastSeen)
+        {
+            target.ProcessName = source.ProcessName;
+            target.Path = source.Path;
+            target.LastSeen = source.LastSeen;
+        }
+
+        foreach (var pair in source.Buckets)
+        {
+            if (pair.Value is null)
+            {
+                continue;
+            }
+
+            if (!target.Buckets.TryGetValue(pair.Key, out var bucket))
+            {
+                bucket = new TrafficCounters();
+                target.Buckets[pair.Key] = bucket;
+            }
+
+            bucket.Add(pair.Value);
+        }
+    }
+
+    private static ProcessTrafficHistory CloneRecord(ProcessTrafficHistory record)
+    {
+        var clone = new ProcessTrafficHistory
+        {
+            StableKey = record.StableKey,
+            ProcessName = record.ProcessName,
+            Path = record.Path,
+            LastSeen = record.LastSeen
+        };
+
+        foreach (var pair in record.Buckets)
+        {
+            if (pair.Value is not null)
+            {
+                clone.Buckets[pair.Key] = pair.Value.Clone();
+            }
+        }
+
+        return clone;
+    }
+
     public void Save()
     {
-        Directory.CreateDirectory(AppSettings.AppDataDir);
-        var records = _records.Values
-            .Where(record => record.Buckets.Count > 0)
-            .OrderBy(record => record.ProcessName, StringComparer.CurrentCultureIgnoreCase)
-            .ToList();
-        File.WriteAllText(HistoryPath, JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true }));
+        List<ProcessTrafficHistory> records;
+        lock (_gate)
+        {
+            records = _records.Values
+                .Where(record => record.Buckets.Count > 0)
+                .OrderBy(record => record.ProcessName, StringComparer.CurrentCultureIgnoreCase)
+                .Select(CloneRecord)
+                .ToList();
+        }
+
+        AtomicFile.WriteAllText(HistoryPath, JsonSerializer.Serialize(records));
     }
 
     public void Clear()
     {
-        _records.Clear();
+        lock (_gate)
+        {
+            _records.Clear();
+        }
+
         try
         {
             if (File.Exists(HistoryPath))
             {
                 File.Delete(HistoryPath);
+            }
+
+            if (File.Exists(PreviousHistoryPath))
+            {
+                File.Delete(PreviousHistoryPath);
+            }
+
+            if (File.Exists(PreviousV4HistoryPath))
+            {
+                File.Delete(PreviousV4HistoryPath);
+            }
+
+            if (File.Exists(PreviousV3HistoryPath))
+            {
+                File.Delete(PreviousV3HistoryPath);
+            }
+
+            if (File.Exists(PreviousV2HistoryPath))
+            {
+                File.Delete(PreviousV2HistoryPath);
+            }
+
+            if (File.Exists(LegacyHistoryPath))
+            {
+                File.Delete(LegacyHistoryPath);
             }
         }
         catch
@@ -62,37 +185,45 @@ public sealed class TrafficHistoryStore
         }
     }
 
-    public void AddDelta(string processName, string path, TrafficCounters delta, DateTime timestamp)
+    public void AddDelta(
+        string processName,
+        string path,
+        TrafficCounters delta,
+        DateTime timestamp,
+        string interfaceId)
     {
-        if (delta.IsZero || !IsPersistable(processName, path))
+        if (delta.IsZero || !IsPersistable(processName, path) || string.IsNullOrWhiteSpace(interfaceId))
         {
             return;
         }
 
-        var key = TrafficStatsStore.KeyFor(processName, path);
-        if (!_records.TryGetValue(key, out var record))
+        lock (_gate)
         {
-            record = new ProcessTrafficHistory
+            var key = TrafficStatsStore.KeyFor(processName, path);
+            if (!_records.TryGetValue(key, out var record))
             {
-                StableKey = key,
-                ProcessName = processName,
-                Path = path
-            };
-            _records[key] = record;
+                record = new ProcessTrafficHistory
+                {
+                    StableKey = key,
+                    ProcessName = processName,
+                    Path = path
+                };
+                _records[key] = record;
+            }
+
+            record.ProcessName = processName;
+            record.Path = path;
+            record.LastSeen = timestamp;
+            var bucketKey = BucketKeyFor(interfaceId, timestamp);
+
+            if (!record.Buckets.TryGetValue(bucketKey, out var bucket))
+            {
+                bucket = new TrafficCounters();
+                record.Buckets[bucketKey] = bucket;
+            }
+
+            bucket.Add(delta);
         }
-
-        record.ProcessName = processName;
-        record.Path = path;
-        record.LastSeen = timestamp;
-        var bucketKey = timestamp.Date.ToString("yyyy-MM-dd");
-
-        if (!record.Buckets.TryGetValue(bucketKey, out var bucket))
-        {
-            bucket = new TrafficCounters();
-            record.Buckets[bucketKey] = bucket;
-        }
-
-        bucket.Add(delta);
     }
 
     public static bool IsPersistable(string processName, string path)
@@ -102,7 +233,15 @@ public sealed class TrafficHistoryStore
             && !string.IsNullOrWhiteSpace(path);
     }
 
-    public List<TrafficSnapshot> BuildSnapshots(TrafficTimeRange range, IEnumerable<TrafficSnapshot> current)
+    public static bool IsUnattributedPath(string? path)
+    {
+        return UnattributedPath.Equals(path, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public List<TrafficSnapshot> BuildSnapshots(
+        TrafficTimeRange range,
+        IEnumerable<TrafficSnapshot> current,
+        string interfaceId)
     {
         if (range == TrafficTimeRange.Session)
         {
@@ -111,13 +250,18 @@ public sealed class TrafficHistoryStore
 
         var start = GetStartDate(range);
         var output = new Dictionary<string, TrafficSnapshot>();
+        List<ProcessTrafficHistory> records;
+        lock (_gate)
+        {
+            records = _records.Values.Select(CloneRecord).ToList();
+        }
 
-        foreach (var record in _records.Values)
+        foreach (var record in records)
         {
             var counters = new TrafficCounters();
             foreach (var pair in record.Buckets)
             {
-                if (!DateTime.TryParse(pair.Key, out var bucketDate))
+                if (!TryGetBucketDate(pair.Key, interfaceId, out var bucketDate))
                 {
                     continue;
                 }
@@ -143,6 +287,33 @@ public sealed class TrafficHistoryStore
         }
 
         return output.Values.ToList();
+    }
+
+    private static string BucketKeyFor(string interfaceId, DateTime timestamp)
+    {
+        return $"{interfaceId}|{timestamp.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+    }
+
+    private static bool TryGetBucketDate(string key, string interfaceId, out DateTime date)
+    {
+        date = default;
+        if (string.IsNullOrWhiteSpace(interfaceId))
+        {
+            return false;
+        }
+
+        var prefix = interfaceId + "|";
+        if (!key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return DateTime.TryParseExact(
+            key[prefix.Length..],
+            "yyyy-MM-dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out date);
     }
 
     private static IEnumerable<TrafficSnapshot> AggregateCurrentByStableKey(IEnumerable<TrafficSnapshot> current)
@@ -179,13 +350,13 @@ public sealed class TrafficHistoryStore
         ulong total = 0;
         foreach (var snapshot in snapshots)
         {
-            total += selector(snapshot);
+            total = AddSaturating(total, selector(snapshot));
         }
 
         return total;
     }
 
-    private static DateTime? GetStartDate(TrafficTimeRange range)
+    internal static DateTime? GetStartDate(TrafficTimeRange range)
     {
         var today = DateTime.Today;
         return range switch
@@ -239,6 +410,11 @@ public sealed class TrafficHistoryStore
             liveSnapshot.Ipv6Connections,
             liveSnapshot.LastSeen);
     }
+
+    private static ulong AddSaturating(ulong left, ulong right)
+    {
+        return ulong.MaxValue - left < right ? ulong.MaxValue : left + right;
+    }
 }
 
 public sealed class ProcessTrafficHistory
@@ -261,18 +437,40 @@ public sealed class TrafficCounters
     public ulong UdpReceived { get; set; }
     public ulong UdpSent { get; set; }
 
-    public bool IsZero => Ipv4Received + Ipv4Sent + Ipv6Received + Ipv6Sent + TcpReceived + TcpSent + UdpReceived + UdpSent == 0;
+    public bool IsZero => Ipv4Received == 0
+        && Ipv4Sent == 0
+        && Ipv6Received == 0
+        && Ipv6Sent == 0
+        && TcpReceived == 0
+        && TcpSent == 0
+        && UdpReceived == 0
+        && UdpSent == 0;
 
     public void Add(TrafficCounters other)
     {
-        Ipv4Received += other.Ipv4Received;
-        Ipv4Sent += other.Ipv4Sent;
-        Ipv6Received += other.Ipv6Received;
-        Ipv6Sent += other.Ipv6Sent;
-        TcpReceived += other.TcpReceived;
-        TcpSent += other.TcpSent;
-        UdpReceived += other.UdpReceived;
-        UdpSent += other.UdpSent;
+        Ipv4Received = AddSaturating(Ipv4Received, other.Ipv4Received);
+        Ipv4Sent = AddSaturating(Ipv4Sent, other.Ipv4Sent);
+        Ipv6Received = AddSaturating(Ipv6Received, other.Ipv6Received);
+        Ipv6Sent = AddSaturating(Ipv6Sent, other.Ipv6Sent);
+        TcpReceived = AddSaturating(TcpReceived, other.TcpReceived);
+        TcpSent = AddSaturating(TcpSent, other.TcpSent);
+        UdpReceived = AddSaturating(UdpReceived, other.UdpReceived);
+        UdpSent = AddSaturating(UdpSent, other.UdpSent);
+    }
+
+    public TrafficCounters Clone()
+    {
+        return new TrafficCounters
+        {
+            Ipv4Received = Ipv4Received,
+            Ipv4Sent = Ipv4Sent,
+            Ipv6Received = Ipv6Received,
+            Ipv6Sent = Ipv6Sent,
+            TcpReceived = TcpReceived,
+            TcpSent = TcpSent,
+            UdpReceived = UdpReceived,
+            UdpSent = UdpSent
+        };
     }
 
     public TrafficSnapshot ToSnapshot(
@@ -324,4 +522,9 @@ public sealed class TrafficCounters
     }
 
     private static ulong Subtract(ulong current, ulong previous) => current >= previous ? current - previous : current;
+
+    private static ulong AddSaturating(ulong left, ulong right)
+    {
+        return ulong.MaxValue - left < right ? ulong.MaxValue : left + right;
+    }
 }

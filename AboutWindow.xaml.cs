@@ -25,6 +25,10 @@ public partial class AboutWindow : Window
         VersionText.Text = $"{L("AboutVersion")}: {Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0"}";
         FeatureText.Text = L("AboutFeatures");
         RuntimeText.Text = L("AboutRuntime");
+        if (TrafficHistoryStore.HasLegacyHistory)
+        {
+            RuntimeText.Text += Environment.NewLine + L("LegacyHistoryPreserved");
+        }
         DataLabelText.Text = L("AboutData");
         DataPathText.Text = AppSettings.AppDataDir;
         LicenseLabelText.Text = L("AboutLicense");

@@ -17,8 +17,10 @@ public sealed class TrafficRow : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public int Pid => _snapshot.Pid;
+    public string PidText => Pid > 0 ? Pid.ToString() : "-";
     public string ProcessName => _snapshot.ProcessName;
-    public string Path => _snapshot.Path;
+    public bool IsUnattributed => TrafficHistoryStore.IsUnattributedPath(_snapshot.Path);
+    public string Path => IsUnattributed ? string.Empty : _snapshot.Path;
     public ulong Ipv4Received => _snapshot.Ipv4Received;
     public ulong Ipv4Sent => _snapshot.Ipv4Sent;
     public ulong Ipv6Received => _snapshot.Ipv6Received;
@@ -27,13 +29,19 @@ public sealed class TrafficRow : INotifyPropertyChanged
     public ulong TcpSent => _snapshot.TcpSent;
     public ulong UdpReceived => _snapshot.UdpReceived;
     public ulong UdpSent => _snapshot.UdpSent;
-    public ulong TotalReceived => Ipv4Received + Ipv6Received;
-    public ulong TotalSent => Ipv4Sent + Ipv6Sent;
+    public ulong Ipv4Total => AddSaturating(Ipv4Received, Ipv4Sent);
+    public ulong Ipv6Total => AddSaturating(Ipv6Received, Ipv6Sent);
+    public ulong TcpTotal => AddSaturating(TcpReceived, TcpSent);
+    public ulong UdpTotal => AddSaturating(UdpReceived, UdpSent);
+    public ulong TotalReceived => AddSaturating(Ipv4Received, Ipv6Received);
+    public ulong TotalSent => AddSaturating(Ipv4Sent, Ipv6Sent);
     public ulong Ipv4ReceiveRate => _snapshot.Ipv4ReceiveRate;
     public ulong Ipv4SendRate => _snapshot.Ipv4SendRate;
     public ulong Ipv6ReceiveRate => _snapshot.Ipv6ReceiveRate;
     public ulong Ipv6SendRate => _snapshot.Ipv6SendRate;
-    public ulong TotalRate => Ipv4ReceiveRate + Ipv4SendRate + Ipv6ReceiveRate + Ipv6SendRate;
+    public ulong Ipv4Rate => AddSaturating(Ipv4ReceiveRate, Ipv4SendRate);
+    public ulong Ipv6Rate => AddSaturating(Ipv6ReceiveRate, Ipv6SendRate);
+    public ulong TotalRate => AddSaturating(Ipv4Rate, Ipv6Rate);
     public int Ipv4Connections => _snapshot.Ipv4Connections;
     public int Ipv6Connections => _snapshot.Ipv6Connections;
     public int Connections => Ipv4Connections + Ipv6Connections;
@@ -97,6 +105,11 @@ public sealed class TrafficRow : INotifyPropertyChanged
         }
 
         return unit == 0 ? $"{value:0} {units[unit]}" : $"{value:0.0} {units[unit]}";
+    }
+
+    private static ulong AddSaturating(ulong left, ulong right)
+    {
+        return ulong.MaxValue - left < right ? ulong.MaxValue : left + right;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

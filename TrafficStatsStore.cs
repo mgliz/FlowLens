@@ -54,8 +54,13 @@ public static class TrafficStatsStore
     public static string KeyFor(string processName, string path)
     {
         return string.IsNullOrWhiteSpace(path)
-            ? $"name:{processName}"
-            : $"path:{path}";
+            ? $"name:{processName.Trim().ToUpperInvariant()}"
+            : $"path:{NormalizeWindowsPath(path)}";
+    }
+
+    private static string NormalizeWindowsPath(string path)
+    {
+        return path.Trim().Replace('/', '\\').ToUpperInvariant();
     }
 }
 

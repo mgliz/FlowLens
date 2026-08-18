@@ -15,18 +15,19 @@ public sealed class AppSettings
     public bool HideIdleRows { get; set; }
     public bool UseBitsPerSecond { get; set; }
     public bool ExcludeLocalTraffic { get; set; } = true;
+    public string NetworkInterfaceId { get; set; } = string.Empty;
     public int RefreshIntervalSeconds { get; set; } = 1;
     public ulong MinimumVisibleBytes { get; set; }
     public string Language { get; set; } = Localizer.NormalizeLanguage(null);
     public TrafficTimeRange TimeRange { get; set; } = TrafficTimeRange.Session;
-    public AppTheme Theme { get; set; } = AppTheme.Dark;
-    public bool ShowPidColumn { get; set; } = true;
+    public AppTheme Theme { get; set; } = AppTheme.System;
+    public bool ShowPidColumn { get; set; }
     public bool ShowRateColumns { get; set; } = true;
     public bool ShowTotalColumns { get; set; } = true;
     public bool ShowIpSplitColumns { get; set; } = true;
-    public bool ShowProtocolColumns { get; set; } = true;
+    public bool ShowProtocolColumns { get; set; }
     public bool ShowFlowsColumn { get; set; } = true;
-    public bool ShowPathColumn { get; set; } = true;
+    public bool ShowPathColumn { get; set; }
 
     public static string AppDataDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FlowLens");
@@ -57,23 +58,23 @@ public sealed class AppSettings
 
     public void Save()
     {
-        Directory.CreateDirectory(AppDataDir);
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(SettingsPath, json);
-        ApplyStartupRegistration();
+        AtomicFile.WriteAllText(SettingsPath, json);
     }
 
-    public void ApplyStartupRegistration()
+    public StartupRegistrationResult ApplyStartupRegistration()
     {
-        ClearRunRegistryRegistration();
+        try
+        {
+            ClearRunRegistryRegistration();
 
-        if (StartWithWindows)
-        {
-            CreateStartupTask();
+            return StartWithWindows
+                ? CreateStartupTask()
+                : DeleteStartupTask();
         }
-        else
+        catch (Exception ex)
         {
-            DeleteStartupTask();
+            return StartupRegistrationResult.Failure(ex.Message);
         }
     }
 
@@ -88,15 +89,15 @@ public sealed class AppSettings
         key.DeleteValue("FlowLens", false);
     }
 
-    private static void CreateStartupTask()
+    private static StartupRegistrationResult CreateStartupTask()
     {
         var executablePath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(executablePath))
         {
-            return;
+            return StartupRegistrationResult.Failure("The executable path is unavailable.");
         }
 
-        RunSchtasks(
+        return RunSchtasks(
             "/Create",
             "/TN", "FlowLens",
             "/SC", "ONLOGON",
@@ -105,12 +106,15 @@ public sealed class AppSettings
             "/F");
     }
 
-    private static void DeleteStartupTask()
+    private static StartupRegistrationResult DeleteStartupTask()
     {
-        RunSchtasks("/Delete", "/TN", "FlowLens", "/F");
+        var query = RunSchtasks("/Query", "/TN", "FlowLens");
+        return query.Succeeded
+            ? RunSchtasks("/Delete", "/TN", "FlowLens", "/F")
+            : StartupRegistrationResult.Success;
     }
 
-    private static void RunSchtasks(params string[] arguments)
+    private static StartupRegistrationResult RunSchtasks(params string[] arguments)
     {
         try
         {
@@ -128,10 +132,38 @@ public sealed class AppSettings
             }
 
             using var process = Process.Start(startInfo);
-            process?.WaitForExit(5000);
+            if (process is null)
+            {
+                return StartupRegistrationResult.Failure("Unable to start schtasks.exe.");
+            }
+
+            var standardErrorTask = process.StandardError.ReadToEndAsync();
+            var standardOutputTask = process.StandardOutput.ReadToEndAsync();
+            if (!process.WaitForExit(10_000))
+            {
+                process.Kill(entireProcessTree: true);
+                return StartupRegistrationResult.Failure("Task Scheduler did not respond within 10 seconds.");
+            }
+
+            var output = standardErrorTask.GetAwaiter().GetResult();
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                output = standardOutputTask.GetAwaiter().GetResult();
+            }
+
+            return process.ExitCode == 0
+                ? StartupRegistrationResult.Success
+                : StartupRegistrationResult.Failure(output.Trim());
         }
-        catch
+        catch (Exception ex)
         {
+            return StartupRegistrationResult.Failure(ex.Message);
         }
     }
+}
+
+public sealed record StartupRegistrationResult(bool Succeeded, string ErrorMessage)
+{
+    public static StartupRegistrationResult Success { get; } = new(true, string.Empty);
+    public static StartupRegistrationResult Failure(string message) => new(false, message);
 }

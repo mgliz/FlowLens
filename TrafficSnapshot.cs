@@ -18,4 +18,5 @@ public sealed record TrafficSnapshot(
     ulong TcpReceived = 0,
     ulong TcpSent = 0,
     ulong UdpReceived = 0,
-    ulong UdpSent = 0);
+    ulong UdpSent = 0,
+    long ProcessInstanceId = 0);

@@ -30,10 +30,10 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 
 ## Download
 
-Use the `v1.0.2` release package:
+Use the `v1.0.3` release package:
 
 ```text
-FlowLens-1.0.2-win-x64.zip
+FlowLens-1.0.3-win-x64.zip
 ```
 
 Unzip it and run `FlowLens.exe` as administrator.
@@ -43,7 +43,7 @@ Unzip it and run `FlowLens.exe` as administrator.
 ```powershell
 dotnet restore
 dotnet build .\FlowLens.csproj -c Release
-dotnet publish .\FlowLens.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish .\FlowLens.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 ## Data
@@ -54,9 +54,18 @@ FlowLens stores settings and local traffic history under:
 %APPDATA%\FlowLens
 ```
 
+## Accounting model
+
+- The main total uses byte counters from the selected Windows network interface.
+- Process rows use kernel ETW events. Sends must originate on the selected adapter; receives assigned to another known local adapter are excluded, while WFP/TUN-rewritten receive endpoints are retained.
+- A VPN, TUN adapter, or transparent proxy can expose both an application's original connection and the proxy's outer connection. FlowLens keeps only the selected-adapter leg, so proxied traffic is normally attributed to the proxy process.
+- If Windows reports lost ETW events, FlowLens displays a capture warning because affected process totals may be incomplete.
+
 ## Notes
 
 FlowLens counts traffic while it is running. It does not backfill traffic that happened before the app started.
+
+Adapter-aligned process accounting is stored in `history-v6.json`, with matching adapter totals in `network-history-v5.json`. Buckets are isolated by the actual Windows interface ID; earlier history files remain local but are not mixed into corrected totals.
 
 Linux is not supported by this WPF/ETW version. A Linux build would require a separate UI and capture backend.
 

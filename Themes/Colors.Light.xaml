@@ -1,0 +1,34 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <FontFamily x:Key="AppFontFamily">Segoe UI Variable Text, Microsoft YaHei UI</FontFamily>
+
+    <SolidColorBrush x:Key="WindowBrush" Color="#F4F6F8"/>
+    <SolidColorBrush x:Key="PanelBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SubtlePanelBrush" Color="#EDF1F5"/>
+    <SolidColorBrush x:Key="LineBrush" Color="#D1DAE5"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#172033"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#56677A"/>
+    <SolidColorBrush x:Key="DisabledTextBrush" Color="#94A0AE"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#006FAD"/>
+    <SolidColorBrush x:Key="AccentAltBrush" Color="#087D65"/>
+    <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#DCEEF8"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="#147A57"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#8A5B00"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="#B42330"/>
+    <SolidColorBrush x:Key="InputBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ButtonBrush" Color="#F8FAFC"/>
+    <SolidColorBrush x:Key="ButtonHoverBrush" Color="#E7EDF4"/>
+    <SolidColorBrush x:Key="ButtonPressedBrush" Color="#D8E2ED"/>
+    <SolidColorBrush x:Key="ButtonBorderBrush" Color="#C5D0DD"/>
+    <SolidColorBrush x:Key="FocusBrush" Color="#0078B8"/>
+    <SolidColorBrush x:Key="HoverBrush" Color="#EEF3F8"/>
+    <SolidColorBrush x:Key="SelectionBrush" Color="#D8EAF5"/>
+    <SolidColorBrush x:Key="GridRowBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="GridAltRowBrush" Color="#F3F6F9"/>
+    <SolidColorBrush x:Key="GridHeaderBrush" Color="#E8EDF3"/>
+    <SolidColorBrush x:Key="ComboPanelBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ComboTextBrush" Color="#172033"/>
+    <SolidColorBrush x:Key="ComboHoverBrush" Color="#E1EDF6"/>
+</ResourceDictionary>

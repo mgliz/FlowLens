@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -7,12 +8,15 @@ public partial class SettingsWindow : Window
 {
     private readonly AppSettings _settings;
     private readonly Action _resetStats;
+    private readonly AppTheme _originalTheme;
+    private bool _settingsSaved;
 
     public SettingsWindow(AppSettings settings, Action resetStats)
     {
-        InitializeComponent();
         _settings = settings;
         _resetStats = resetStats;
+        _originalTheme = settings.Theme;
+        InitializeComponent();
         ThemeManager.Apply(this, settings);
 
         StartWithWindowsBox.IsChecked = settings.StartWithWindows;
@@ -30,8 +34,10 @@ public partial class SettingsWindow : Window
         ShowProtocolColumnsBox.IsChecked = settings.ShowProtocolColumns;
         ShowFlowsColumnBox.IsChecked = settings.ShowFlowsColumn;
         ShowPathColumnBox.IsChecked = settings.ShowPathColumn;
-        RefreshIntervalBox.Text = settings.RefreshIntervalSeconds.ToString();
+        RefreshIntervalBox.ItemsSource = Enumerable.Range(1, 10);
+        RefreshIntervalBox.SelectedItem = settings.RefreshIntervalSeconds;
         MinimumBytesBox.Text = settings.MinimumVisibleBytes.ToString();
+        PopulateNetworkInterfaces();
 
         foreach (ComboBoxItem item in LanguageBox.Items)
         {
@@ -58,8 +64,13 @@ public partial class SettingsWindow : Window
 
     private void ApplyLocalization()
     {
+        Title = L("SettingsTitle");
         TitleText.Text = L("SettingsTitle");
         SubtitleText.Text = L("SettingsSubtitle");
+        GeneralSectionText.Text = L("GeneralSettings");
+        CaptureSectionText.Text = L("CaptureSettings");
+        AppearanceSectionText.Text = L("AppearanceSettings");
+        DataSectionText.Text = L("DataSettings");
         StartWithWindowsBox.Content = L("StartWithWindows");
         StartMinimizedBox.Content = L("StartMinimized");
         CloseToTrayBox.Content = L("CloseToTray");
@@ -68,6 +79,7 @@ public partial class SettingsWindow : Window
         HideIdleRowsBox.Content = L("HideIdleRows");
         UseBitsPerSecondBox.Content = L("UseBitsPerSecond");
         ExcludeLocalTrafficBox.Content = L("ExcludeLocalTraffic");
+        NetworkInterfaceLabel.Text = L("NetworkInterface");
         ThemeLabel.Text = L("Theme");
         SystemThemeItem.Content = L("ThemeSystem");
         DarkThemeItem.Content = L("ThemeDark");
@@ -89,17 +101,24 @@ public partial class SettingsWindow : Window
         SaveButton.Content = L("Save");
     }
 
-    private void SaveButton_Click(object sender, RoutedEventArgs e)
+    private async void SaveButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!int.TryParse(RefreshIntervalBox.Text.Trim(), out var interval))
+        ValidationText.Visibility = Visibility.Collapsed;
+        MinimumBytesBox.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
+
+        if (RefreshIntervalBox.SelectedItem is not int interval)
         {
-            interval = 1;
+            ShowValidation(L("InvalidRefreshInterval"), RefreshIntervalBox);
+            return;
         }
 
         if (!ulong.TryParse(MinimumBytesBox.Text.Trim(), out var minimumBytes))
         {
-            minimumBytes = 0;
+            ShowValidation(L("InvalidMinimumBytes"), MinimumBytesBox);
+            return;
         }
+
+        var previousStartWithWindows = _settings.StartWithWindows;
 
         _settings.StartWithWindows = StartWithWindowsBox.IsChecked == true;
         _settings.StartMinimized = StartMinimizedBox.IsChecked == true;
@@ -109,6 +128,7 @@ public partial class SettingsWindow : Window
         _settings.HideIdleRows = HideIdleRowsBox.IsChecked == true;
         _settings.UseBitsPerSecond = UseBitsPerSecondBox.IsChecked == true;
         _settings.ExcludeLocalTraffic = ExcludeLocalTrafficBox.IsChecked == true;
+        _settings.NetworkInterfaceId = (NetworkInterfaceBox.SelectedItem as NetworkInterfaceOption)?.Id ?? string.Empty;
         _settings.ShowPidColumn = ShowPidColumnBox.IsChecked == true;
         _settings.ShowRateColumns = ShowRateColumnsBox.IsChecked == true;
         _settings.ShowTotalColumns = ShowTotalColumnsBox.IsChecked == true;
@@ -116,16 +136,58 @@ public partial class SettingsWindow : Window
         _settings.ShowProtocolColumns = ShowProtocolColumnsBox.IsChecked == true;
         _settings.ShowFlowsColumn = ShowFlowsColumnBox.IsChecked == true;
         _settings.ShowPathColumn = ShowPathColumnBox.IsChecked == true;
-        _settings.RefreshIntervalSeconds = Math.Clamp(interval, 1, 10);
+        _settings.RefreshIntervalSeconds = interval;
         _settings.MinimumVisibleBytes = minimumBytes;
         _settings.Language = Localizer.NormalizeLanguage((LanguageBox.SelectedItem as ComboBoxItem)?.Tag as string);
         if (Enum.TryParse<AppTheme>((ThemeBox.SelectedItem as ComboBoxItem)?.Tag as string, out var theme))
         {
             _settings.Theme = theme;
         }
-        _settings.Save();
 
-        DialogResult = true;
+        SaveButton.IsEnabled = false;
+        try
+        {
+            var startupResult = await Task.Run(_settings.ApplyStartupRegistration);
+            if (!startupResult.Succeeded)
+            {
+                _settings.StartWithWindows = previousStartWithWindows;
+            }
+
+            _settings.Save();
+
+            if (!startupResult.Succeeded)
+            {
+                System.Windows.MessageBox.Show(
+                    this,
+                    $"{L("StartupRegistrationFailed")}\n{startupResult.ErrorMessage}",
+                    L("SettingsTitle"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
+            _settingsSaved = true;
+            DialogResult = true;
+        }
+        catch (Exception ex)
+        {
+            SaveButton.IsEnabled = true;
+            System.Windows.MessageBox.Show(this, ex.Message, L("SettingsTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void PopulateNetworkInterfaces()
+    {
+        var options = new List<NetworkInterfaceOption>
+        {
+            new(string.Empty, L("AdapterAutomatic"), string.Empty)
+        };
+        options.AddRange(NetworkAdapterSampler.GetInterfaceOptions());
+        NetworkInterfaceBox.ItemsSource = options;
+        NetworkInterfaceBox.SelectedValue = _settings.NetworkInterfaceId;
+        if (NetworkInterfaceBox.SelectedItem is null)
+        {
+            NetworkInterfaceBox.SelectedIndex = 0;
+        }
     }
 
     private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -133,7 +195,30 @@ public partial class SettingsWindow : Window
         if (ThemeBox.SelectedItem is ComboBoxItem item &&
             Enum.TryParse<AppTheme>(item.Tag as string, out var theme))
         {
-            ThemeManager.Apply(this, theme);
+            ThemeManager.ApplyApplication(theme);
+        }
+    }
+
+    private void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        if (_settingsSaved)
+        {
+            return;
+        }
+
+        _settings.Theme = _originalTheme;
+        ThemeManager.ApplyApplication(_originalTheme);
+    }
+
+    private void ShowValidation(string message, System.Windows.Controls.Control control)
+    {
+        ValidationText.Text = message;
+        ValidationText.Visibility = Visibility.Visible;
+        control.SetResourceReference(System.Windows.Controls.Control.BorderBrushProperty, "DangerBrush");
+        control.Focus();
+        if (control is System.Windows.Controls.TextBox textBox)
+        {
+            textBox.SelectAll();
         }
     }
 

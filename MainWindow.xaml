@@ -1,265 +1,443 @@
 <Window x:Class="FlowLens.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="FlowLens" Height="760" Width="1260" MinHeight="620" MinWidth="1020"
-        Loaded="Window_Loaded" Closing="Window_Closing" Closed="Window_Closed" StateChanged="Window_StateChanged"
-        Background="#0F172A" FontFamily="Microsoft YaHei UI"
-        Icon="Assets/FlowLens.ico">
-    <Window.Resources>
-        <SolidColorBrush x:Key="PanelBrush" Color="#172033"/>
-        <SolidColorBrush x:Key="LineBrush" Color="#2A3750"/>
-        <SolidColorBrush x:Key="TextBrush" Color="#E5EDF7"/>
-        <SolidColorBrush x:Key="MutedBrush" Color="#9AABC1"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#38BDF8"/>
-        <SolidColorBrush x:Key="AccentAltBrush" Color="#A7F3D0"/>
-        <SolidColorBrush x:Key="InputBrush" Color="#101827"/>
-        <SolidColorBrush x:Key="ButtonBrush" Color="#26354D"/>
-        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#344761"/>
-        <SolidColorBrush x:Key="GridRowBrush" Color="#141D2F"/>
-        <SolidColorBrush x:Key="GridAltRowBrush" Color="#172238"/>
-        <SolidColorBrush x:Key="GridHeaderBrush" Color="#1E2A40"/>
-        <SolidColorBrush x:Key="ComboPanelBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="ComboTextBrush" Color="#111827"/>
-        <SolidColorBrush x:Key="ComboHoverBrush" Color="#DCEBFF"/>
-
-        <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-        </Style>
-
-        <Style x:Key="MetricPanel" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="18"/>
-        </Style>
-
-        <Style x:Key="ToolbarButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-            <Setter Property="Background" Value="{DynamicResource ButtonBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="14,8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <Style TargetType="ComboBox">
-            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}"/>
-            <Setter Property="Background" Value="{DynamicResource ComboPanelBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,0"/>
-            <Setter Property="MaxDropDownHeight" Value="260"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <ToggleButton x:Name="Toggle"
-                                          Background="{TemplateBinding Background}"
-                                          BorderBrush="{TemplateBinding BorderBrush}"
-                                          BorderThickness="{TemplateBinding BorderThickness}"
-                                          Foreground="{TemplateBinding Foreground}"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                          ClickMode="Press">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Border x:Name="Root"
-                                                Background="{TemplateBinding Background}"
-                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                BorderThickness="{TemplateBinding BorderThickness}"
-                                                CornerRadius="5">
-                                            <Grid>
-                                                <ContentPresenter Margin="10,0,28,0"
-                                                                  VerticalAlignment="Center"
-                                                                  HorizontalAlignment="Stretch"
-                                                                  TextElement.Foreground="{TemplateBinding Foreground}"
-                                                                  Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                                                  ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                                                  ContentStringFormat="{Binding SelectionBoxItemStringFormat, RelativeSource={RelativeSource AncestorType=ComboBox}}"/>
-                                                <Path Width="8" Height="5"
-                                                      HorizontalAlignment="Right"
-                                                      VerticalAlignment="Center"
-                                                      Margin="0,0,10,0"
-                                                      Fill="{DynamicResource MutedBrush}"
-                                                      Data="M 0 0 L 4 5 L 8 0 Z"/>
-                                            </Grid>
-                                        </Border>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                            </ToggleButton>
-                            <Popup x:Name="PART_Popup"
-                                   AllowsTransparency="True"
-                                   Focusable="False"
-                                   IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}"
-                                   Placement="Bottom"
-                                   PopupAnimation="Fade">
-                                <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                                        Background="{DynamicResource ComboPanelBrush}"
-                                        BorderBrush="{DynamicResource LineBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="5"
-                                        TextElement.Foreground="{DynamicResource ComboTextBrush}">
-                                    <ScrollViewer CanContentScroll="True">
-                                        <ItemsPresenter/>
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.55"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="ComboBoxItem">
-            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}"/>
-            <Setter Property="Background" Value="{DynamicResource ComboPanelBrush}"/>
-            <Setter Property="Padding" Value="8,5"/>
-            <Style.Triggers>
-                <Trigger Property="IsHighlighted" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource ComboHoverBrush}"/>
-                    <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}"/>
-                </Trigger>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource ComboHoverBrush}"/>
-                    <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style TargetType="DataGrid">
-            <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="RowBackground" Value="{DynamicResource GridRowBrush}"/>
-            <Setter Property="AlternatingRowBackground" Value="{DynamicResource GridAltRowBrush}"/>
-            <Setter Property="GridLinesVisibility" Value="None"/>
-            <Setter Property="HeadersVisibility" Value="Column"/>
-            <Setter Property="CanUserAddRows" Value="False"/>
-            <Setter Property="CanUserDeleteRows" Value="False"/>
-            <Setter Property="IsReadOnly" Value="True"/>
-            <Setter Property="SelectionMode" Value="Single"/>
-            <Setter Property="AutoGenerateColumns" Value="False"/>
-            <Setter Property="EnableRowVirtualization" Value="True"/>
-            <Setter Property="EnableColumnVirtualization" Value="True"/>
-        </Style>
-
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="{DynamicResource GridHeaderBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
-            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
-
-        <Style TargetType="DataGridCell">
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,8"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-        </Style>
-    </Window.Resources>
-
-    <Grid Margin="22">
+        Title="FlowLens"
+        Height="820"
+        Width="1320"
+        MinHeight="700"
+        MinWidth="860"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing"
+        Closed="Window_Closed"
+        StateChanged="Window_StateChanged"
+        SizeChanged="Window_SizeChanged"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Background="{DynamicResource WindowBrush}"
+        FontFamily="{DynamicResource AppFontFamily}"
+        Icon="Assets/FlowLens.ico"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Grid Margin="22,18,22,14">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,18">
-            <StackPanel DockPanel.Dock="Left">
-                <TextBlock Text="FlowLens" FontSize="30" FontWeight="SemiBold"/>
-                <TextBlock x:Name="SubtitleText" Foreground="{DynamicResource MutedBrush}" Margin="1,6,0,0"/>
-            </StackPanel>
-
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <ComboBox x:Name="TimeRangeBox" Width="138" Height="38" Margin="0,0,10,0" SelectionChanged="TimeRangeBox_SelectionChanged"/>
-                <Border Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="7" Padding="12,0" Height="38" Width="260" Margin="0,0,10,0">
-                    <TextBox x:Name="SearchBox"
-                             TextChanged="SearchBox_TextChanged"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             Foreground="{DynamicResource TextBrush}"
-                             CaretBrush="{DynamicResource AccentBrush}"
-                             VerticalContentAlignment="Center"
-                             FontSize="13"/>
-                </Border>
-                <Button x:Name="SettingsButton" Style="{StaticResource ToolbarButton}" Click="SettingsButton_Click" Margin="0,0,10,0"/>
-                <Button x:Name="AboutButton" Style="{StaticResource ToolbarButton}" Click="AboutButton_Click"/>
-            </StackPanel>
-        </DockPanel>
-
-        <Grid Grid.Row="1" Margin="0,0,0,18">
+        <Grid x:Name="HeaderGrid" Grid.Row="0" Margin="0,0,0,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.15*"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="0.9*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Style="{StaticResource MetricPanel}" Margin="0,0,12,0">
-                <StackPanel>
-                    <TextBlock x:Name="TotalLabelText" Foreground="{DynamicResource MutedBrush}"/>
-                    <TextBlock x:Name="TotalRateText" Text="0 B/s" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                    <TextBlock x:Name="TotalBytesText" Text="0 B" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0"/>
-                </StackPanel>
-            </Border>
+            <StackPanel x:Name="BrandPanel">
+                <TextBlock Text="FlowLens" FontSize="29" FontWeight="SemiBold"/>
+                <TextBlock x:Name="SubtitleText"
+                           Margin="1,5,0,0"
+                           Foreground="{DynamicResource MutedBrush}"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
 
-            <Border Grid.Column="1" Style="{StaticResource MetricPanel}" Margin="0,0,12,0">
-                <StackPanel>
-                    <TextBlock Text="IPv4" Foreground="{DynamicResource MutedBrush}"/>
-                    <TextBlock x:Name="Ipv4RateText" Text="0 B/s" FontSize="22" FontWeight="SemiBold" Margin="0,8,0,0" Foreground="{DynamicResource AccentBrush}"/>
-                    <TextBlock x:Name="Ipv4BytesText" Text="0 B" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0"/>
-                </StackPanel>
-            </Border>
+            <StackPanel x:Name="ToolbarPanel"
+                        Grid.Column="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <ComboBox x:Name="TimeRangeBox"
+                          Width="150"
+                          Height="38"
+                          Margin="0,0,8,0"
+                          SelectionChanged="TimeRangeBox_SelectionChanged"/>
 
-            <Border Grid.Column="2" Style="{StaticResource MetricPanel}" Margin="0,0,12,0">
-                <StackPanel>
-                    <TextBlock Text="IPv6" Foreground="{DynamicResource MutedBrush}"/>
-                    <TextBlock x:Name="Ipv6RateText" Text="0 B/s" FontSize="22" FontWeight="SemiBold" Margin="0,8,0,0" Foreground="{DynamicResource AccentAltBrush}"/>
-                    <TextBlock x:Name="Ipv6BytesText" Text="0 B" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0"/>
-                </StackPanel>
-            </Border>
+                <Border x:Name="SearchHost"
+                        Width="260"
+                        Height="38"
+                        Margin="0,0,8,0"
+                        Padding="10,0,4,0"
+                        Background="{DynamicResource InputBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="5">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="&#xE721;"
+                                   FontFamily="Segoe Fluent Icons"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   IsHitTestVisible="False"/>
+                        <Grid Grid.Column="1">
+                            <TextBox x:Name="SearchBox"
+                                     MinHeight="0"
+                                     Padding="0"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     TextChanged="SearchBox_TextChanged"
+                                     VerticalContentAlignment="Center"/>
+                            <TextBlock x:Name="SearchPlaceholderText"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                        <Button x:Name="SearchClearButton"
+                                Grid.Column="2"
+                                Style="{StaticResource ToolbarButton}"
+                                Content="&#xE894;"
+                                Width="30"
+                                Height="30"
+                                MinWidth="0"
+                                Margin="2,0,0,0"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                Visibility="Collapsed"
+                                Click="SearchClearButton_Click"/>
+                    </Grid>
+                </Border>
 
-            <Border Grid.Column="3" Style="{StaticResource MetricPanel}">
-                <StackPanel>
-                    <TextBlock x:Name="ProcessesLabelText" Foreground="{DynamicResource MutedBrush}"/>
-                    <TextBlock x:Name="ProcessCountText" Text="0 / 0" FontSize="22" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                </StackPanel>
+                <Button x:Name="SettingsButton"
+                        Style="{StaticResource ToolbarButton}"
+                        Content="&#xE713;"
+                        Margin="0,0,8,0"
+                        Click="SettingsButton_Click"/>
+                <Button x:Name="AboutButton"
+                        Style="{StaticResource ToolbarButton}"
+                        Content="&#xE946;"
+                        Click="AboutButton_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <DockPanel Margin="0,0,0,7">
+                <TextBlock x:Name="NetworkSectionTitleText"
+                           Style="{StaticResource SectionHeader}"/>
+                <TextBlock x:Name="NetworkAdapterText"
+                           DockPanel.Dock="Right"
+                           HorizontalAlignment="Right"
+                           Foreground="{DynamicResource MutedBrush}"
+                           TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+
+            <Border Grid.Row="1"
+                    Style="{StaticResource MetricPanel}"
+                    Padding="16,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock x:Name="NetworkCurrentLabelText"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="NetworkRateText"
+                                   Text="0 B/s"
+                                   Margin="0,5,0,0"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"
+                                   Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                        <TextBlock x:Name="NetworkReceiveLabelText"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="NetworkReceiveRateText"
+                                   Text="0 B/s"
+                                   Margin="0,5,0,0"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Margin="14,0,0,0">
+                        <TextBlock x:Name="NetworkSendLabelText"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="NetworkSendRateText"
+                                   Text="0 B/s"
+                                   Margin="0,5,0,0"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentAltBrush}"
+                                   Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="3" Margin="14,0,0,0">
+                        <TextBlock x:Name="NetworkPeriodLabelText"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="NetworkBytesText"
+                                   Text="0 B"
+                                   Margin="0,5,0,0"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
 
-        <Border Grid.Row="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
-            <DataGrid x:Name="TrafficGrid" AlternationCount="2" Sorting="TrafficGrid_Sorting">
-                <DataGrid.Columns>
-                    <DataGridTextColumn x:Name="ProcessColumn" Binding="{Binding ProcessName}" SortMemberPath="ProcessName" Width="170"/>
-                    <DataGridTextColumn x:Name="PidColumn" Header="PID" Binding="{Binding Pid}" SortMemberPath="Pid" Width="74"/>
-                    <DataGridTextColumn x:Name="RateColumn" Binding="{Binding TotalRateText}" SortMemberPath="TotalRate" Width="110"/>
-                    <DataGridTextColumn x:Name="Ipv4RateColumn" Binding="{Binding Ipv4RateText}" SortMemberPath="Ipv4ReceiveRate" Width="170"/>
-                    <DataGridTextColumn x:Name="Ipv6RateColumn" Binding="{Binding Ipv6RateText}" SortMemberPath="Ipv6ReceiveRate" Width="170"/>
-                    <DataGridTextColumn x:Name="ReceivedColumn" Binding="{Binding TotalReceivedText}" SortMemberPath="TotalReceived" Width="120"/>
-                    <DataGridTextColumn x:Name="SentColumn" Binding="{Binding TotalSentText}" SortMemberPath="TotalSent" Width="120"/>
-                    <DataGridTextColumn x:Name="Ipv4Column" Binding="{Binding Ipv4TotalText}" SortMemberPath="Ipv4Received" Width="150"/>
-                    <DataGridTextColumn x:Name="Ipv6Column" Binding="{Binding Ipv6TotalText}" SortMemberPath="Ipv6Received" Width="150"/>
-                    <DataGridTextColumn x:Name="TcpColumn" Binding="{Binding TcpTotalText}" SortMemberPath="TcpReceived" Width="150"/>
-                    <DataGridTextColumn x:Name="UdpColumn" Binding="{Binding UdpTotalText}" SortMemberPath="UdpReceived" Width="150"/>
-                    <DataGridTextColumn x:Name="FlowsColumn" Binding="{Binding Connections}" SortMemberPath="Connections" Width="76"/>
-                    <DataGridTextColumn x:Name="PathColumn" Binding="{Binding Path}" SortMemberPath="Path" Width="*"/>
-                </DataGrid.Columns>
-            </DataGrid>
+        <Grid Grid.Row="2" Margin="0,0,0,14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="AttributionSectionTitleText"
+                       Style="{StaticResource SectionHeader}"
+                       Margin="0,0,0,7"/>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.1*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="0.9*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Style="{StaticResource MetricPanel}"
+                        Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock x:Name="TotalLabelText"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="TotalRateText"
+                                   Text="0 B/s"
+                                   Margin="0,6,0,0"
+                                   FontSize="24"
+                                   FontWeight="SemiBold"
+                                   Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock x:Name="TotalBytesText"
+                                   Text="0 B"
+                                   Margin="0,4,0,0"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Style="{StaticResource MetricPanel}"
+                        Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock x:Name="Ipv4LabelText"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="Ipv4RateText"
+                                   Text="0 B/s"
+                                   Margin="0,6,0,0"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock x:Name="Ipv4BytesText"
+                                   Text="0 B"
+                                   Margin="0,4,0,0"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2"
+                        Style="{StaticResource MetricPanel}"
+                        Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock x:Name="Ipv6LabelText"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="Ipv6RateText"
+                                   Text="0 B/s"
+                                   Margin="0,6,0,0"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentAltBrush}"
+                                   Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock x:Name="Ipv6BytesText"
+                                   Text="0 B"
+                                   Margin="0,4,0,0"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="3" Style="{StaticResource MetricPanel}">
+                    <StackPanel>
+                        <TextBlock x:Name="ProcessesLabelText"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="ProcessCountText"
+                                   Text="0 / 0"
+                                   Margin="0,6,0,0"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="3"
+                Background="{DynamicResource PanelBrush}"
+                BorderBrush="{DynamicResource LineBrush}"
+                BorderThickness="1"
+                CornerRadius="7"
+                ClipToBounds="True">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Border Padding="12,8"
+                        Background="{DynamicResource SubtlePanelBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
+                        BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ProcessTableTitleText"
+                                   Style="{StaticResource SectionHeader}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="SortSummaryText"
+                                   Grid.Column="1"
+                                   Margin="16,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
+                </Border>
+
+                <DataGrid x:Name="TrafficGrid"
+                          Grid.Row="1"
+                          BorderThickness="0"
+                          AlternationCount="2"
+                          FrozenColumnCount="1"
+                          CanUserReorderColumns="True"
+                          CanUserResizeColumns="True"
+                          Sorting="TrafficGrid_Sorting">
+                    <DataGrid.Columns>
+                    <DataGridTextColumn x:Name="ProcessColumn"
+                                        Binding="{Binding ProcessName}"
+                                        SortMemberPath="ProcessName"
+                                        ElementStyle="{StaticResource TextCellText}"
+                                        Width="190"
+                                        MinWidth="140"/>
+                    <DataGridTextColumn x:Name="PidColumn"
+                                        Header="PID"
+                                        Binding="{Binding PidText}"
+                                        SortMemberPath="Pid"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="76"/>
+                    <DataGridTextColumn x:Name="RateColumn"
+                                        Binding="{Binding TotalRateText}"
+                                        SortMemberPath="TotalRate"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="106"/>
+                    <DataGridTextColumn x:Name="Ipv4RateColumn"
+                                        Binding="{Binding Ipv4RateText}"
+                                        SortMemberPath="Ipv4Rate"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="164"/>
+                    <DataGridTextColumn x:Name="Ipv6RateColumn"
+                                        Binding="{Binding Ipv6RateText}"
+                                        SortMemberPath="Ipv6Rate"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="164"/>
+                    <DataGridTextColumn x:Name="ReceivedColumn"
+                                        Binding="{Binding TotalReceivedText}"
+                                        SortMemberPath="TotalReceived"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="112"/>
+                    <DataGridTextColumn x:Name="SentColumn"
+                                        Binding="{Binding TotalSentText}"
+                                        SortMemberPath="TotalSent"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="112"/>
+                    <DataGridTextColumn x:Name="Ipv4Column"
+                                        Binding="{Binding Ipv4TotalText}"
+                                        SortMemberPath="Ipv4Total"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="156"/>
+                    <DataGridTextColumn x:Name="Ipv6Column"
+                                        Binding="{Binding Ipv6TotalText}"
+                                        SortMemberPath="Ipv6Total"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="156"/>
+                    <DataGridTextColumn x:Name="TcpColumn"
+                                        Binding="{Binding TcpTotalText}"
+                                        SortMemberPath="TcpTotal"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="156"/>
+                    <DataGridTextColumn x:Name="UdpColumn"
+                                        Binding="{Binding UdpTotalText}"
+                                        SortMemberPath="UdpTotal"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="156"/>
+                    <DataGridTextColumn x:Name="FlowsColumn"
+                                        Binding="{Binding Connections}"
+                                        SortMemberPath="Connections"
+                                        HeaderStyle="{StaticResource NumericColumnHeader}"
+                                        ElementStyle="{StaticResource NumericCellText}"
+                                        Width="76"/>
+                    <DataGridTextColumn x:Name="PathColumn"
+                                        Binding="{Binding Path}"
+                                        SortMemberPath="Path"
+                                        ElementStyle="{StaticResource TextCellText}"
+                                        Width="*"
+                                        MinWidth="220"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
         </Border>
 
-        <DockPanel Grid.Row="3" Margin="0,12,0,0">
-            <TextBlock x:Name="StatusText" Foreground="{DynamicResource MutedBrush}"/>
-            <TextBlock x:Name="TrayHintText" DockPanel.Dock="Right" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right"/>
-        </DockPanel>
+        <Grid Grid.Row="4" Margin="0,11,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="StatusIconText"
+                           Text="&#xE73E;"
+                           FontFamily="Segoe Fluent Icons"
+                           FontSize="12"
+                           Foreground="{DynamicResource SuccessBrush}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,7,0"/>
+                <TextBlock x:Name="StatusText"
+                           Foreground="{DynamicResource MutedBrush}"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <TextBlock x:Name="TrayHintText"
+                       Grid.Column="1"
+                       Margin="20,0,0,0"
+                       Foreground="{DynamicResource MutedBrush}"
+                       HorizontalAlignment="Right"
+                       TextTrimming="CharacterEllipsis"/>
+        </Grid>
     </Grid>
 </Window>

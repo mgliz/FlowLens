@@ -38,6 +38,7 @@ public partial class App : System.Windows.Application
 
         _activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivateEventName);
         StartActivationListener();
+        ThemeManager.ApplyApplication(AppSettings.Load());
         base.OnStartup(e);
     }
 
