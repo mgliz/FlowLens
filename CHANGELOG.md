@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4 - 2026-08-18
+
+- Rebuilt Windows startup registration with an unquoted executable action, a per-user delayed logon trigger, battery-safe settings, no 72-hour execution limit, and automatic repair after the executable moves or the task disappears.
+- Synchronized the native Windows title bars with dark, light, and follow-system theme changes across every application window.
+
 ## 1.0.3 - 2026-08-18
 
 - Reworked the interface around separate physical-adapter and process-attribution sections so unlike accounting sources are no longer presented as one interchangeable total.

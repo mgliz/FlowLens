@@ -1,6 +1,7 @@
 using FlowLens;
 using System.Globalization;
 using System.Net;
+using System.Xml.Linq;
 
 var failures = new List<string>();
 const string TestInterfaceId = "test-interface";
@@ -32,6 +33,45 @@ foreach (var key in new[]
 
 Check(ThemeManager.Resolve(AppTheme.Dark) == AppTheme.Dark, "An explicit dark theme must remain dark.");
 Check(ThemeManager.Resolve(AppTheme.Light) == AppTheme.Light, "An explicit light theme must remain light.");
+
+const string StartupExecutable = @"C:\Apps\FlowLens\FlowLens.exe";
+const string StartupUserSid = "S-1-5-21-1000";
+var startupTask = AppSettings.BuildStartupTaskDocument(StartupExecutable, StartupUserSid, @"Test\User");
+XNamespace taskNamespace = "http://schemas.microsoft.com/windows/2004/02/mit/task";
+var startupAction = startupTask.Root?
+    .Element(taskNamespace + "Actions")?
+    .Element(taskNamespace + "Exec");
+var startupSettings = startupTask.Root?.Element(taskNamespace + "Settings");
+var startupTrigger = startupTask.Root?
+    .Element(taskNamespace + "Triggers")?
+    .Element(taskNamespace + "LogonTrigger");
+Check(
+    startupAction?.Element(taskNamespace + "Command")?.Value == StartupExecutable &&
+    !startupAction.Element(taskNamespace + "Command")!.Value.Contains('"'),
+    "The startup action must store an unquoted executable path.");
+Check(
+    startupAction?.Element(taskNamespace + "Arguments")?.Value == "--minimized" &&
+    startupAction.Element(taskNamespace + "WorkingDirectory")?.Value == @"C:\Apps\FlowLens",
+    "The startup action must keep arguments and working directory separate from the executable.");
+Check(
+    startupSettings?.Element(taskNamespace + "DisallowStartIfOnBatteries")?.Value == "false" &&
+    startupSettings.Element(taskNamespace + "StopIfGoingOnBatteries")?.Value == "false" &&
+    startupSettings.Element(taskNamespace + "StartWhenAvailable")?.Value == "true" &&
+    startupSettings.Element(taskNamespace + "ExecutionTimeLimit")?.Value == "PT0S",
+    "The startup task must run on battery, catch missed starts, and have no 72-hour limit.");
+Check(
+    startupTrigger?.Element(taskNamespace + "UserId")?.Value == StartupUserSid &&
+    startupTrigger.Element(taskNamespace + "Delay")?.Value == "PT10S",
+    "The startup task must use a short, user-specific delayed logon trigger.");
+Check(
+    AppSettings.IsStartupMetadataCurrent(
+        AppSettings.CurrentStartupTaskVersion,
+        StartupExecutable,
+        @"c:\apps\flowlens\FLOWLENS.EXE"),
+    "Startup metadata must compare Windows executable paths case-insensitively.");
+Check(
+    !AppSettings.IsStartupMetadataCurrent(0, StartupExecutable, StartupExecutable),
+    "An older startup task schema must be refreshed.");
 
 Check(
     EtwTrafficMonitor.IsDifferentProcessInstance(100, 200),

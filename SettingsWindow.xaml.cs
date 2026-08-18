@@ -119,6 +119,8 @@ public partial class SettingsWindow : Window
         }
 
         var previousStartWithWindows = _settings.StartWithWindows;
+        var previousStartupTaskVersion = _settings.StartupTaskVersion;
+        var previousStartupExecutablePath = _settings.StartupExecutablePath;
 
         _settings.StartWithWindows = StartWithWindowsBox.IsChecked == true;
         _settings.StartMinimized = StartMinimizedBox.IsChecked == true;
@@ -151,6 +153,8 @@ public partial class SettingsWindow : Window
             if (!startupResult.Succeeded)
             {
                 _settings.StartWithWindows = previousStartWithWindows;
+                _settings.StartupTaskVersion = previousStartupTaskVersion;
+                _settings.StartupExecutablePath = previousStartupExecutablePath;
             }
 
             _settings.Save();

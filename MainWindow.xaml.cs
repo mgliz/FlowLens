@@ -39,6 +39,8 @@ public partial class MainWindow : Window
     private long _lastAppliedGeneration = -1;
     private bool _networkSampleUnavailable;
     private string _lastPersistenceErrorText = string.Empty;
+    private string _startupRegistrationErrorText = string.Empty;
+    private bool _startupRepairInProgress;
     private string _sortMember = nameof(TrafficRow.TotalRate);
     private ListSortDirection _sortDirection = ListSortDirection.Descending;
     private MonitorSnapshotEventArgs? _pendingUiSnapshot;
@@ -82,10 +84,57 @@ public partial class MainWindow : Window
             IsAdministrator() ? L("Collecting") : L("NotAdmin"),
             IsAdministrator() ? StatusSeverity.Success : StatusSeverity.Warning);
         _monitor.Start();
+        _ = RepairStartupRegistrationAsync();
 
         if (_settings.StartMinimized || Environment.GetCommandLineArgs().Any(arg => arg.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
         {
             HideToTray();
+        }
+    }
+
+    private async Task RepairStartupRegistrationAsync()
+    {
+        if (_startupRepairInProgress)
+        {
+            return;
+        }
+
+        if (!_settings.StartWithWindows)
+        {
+            _startupRegistrationErrorText = string.Empty;
+            return;
+        }
+
+        _startupRepairInProgress = true;
+        try
+        {
+            var needsRefresh = await Task.Run(_settings.StartupRegistrationNeedsRefresh);
+            if (!needsRefresh)
+            {
+                _startupRegistrationErrorText = string.Empty;
+                return;
+            }
+
+            var result = await Task.Run(_settings.ApplyStartupRegistration);
+            if (result.Succeeded)
+            {
+                _startupRegistrationErrorText = string.Empty;
+                _settings.Save();
+            }
+            else
+            {
+                _startupRegistrationErrorText = result.ErrorMessage;
+                UpdateMetrics();
+            }
+        }
+        catch (Exception ex)
+        {
+            _startupRegistrationErrorText = ex.Message;
+            UpdateMetrics();
+        }
+        finally
+        {
+            _startupRepairInProgress = false;
         }
     }
 
@@ -458,6 +507,12 @@ public partial class MainWindow : Window
                 $"{L("StorageWarning")}: {_lastPersistenceErrorText} - {DateTime.Now:HH:mm:ss}",
                 StatusSeverity.Error);
         }
+        else if (!string.IsNullOrWhiteSpace(_startupRegistrationErrorText))
+        {
+            SetStatus(
+                $"{L("StartupRegistrationFailed")} {_startupRegistrationErrorText}",
+                StatusSeverity.Warning);
+        }
         else
         {
             SetStatus($"{L("Collecting")} - {DateTime.Now:HH:mm:ss}", StatusSeverity.Success);
@@ -593,6 +648,7 @@ public partial class MainWindow : Window
             }
             RebuildDisplayedRows();
             SaveHistoryIfNeeded(force: false);
+            _ = RepairStartupRegistrationAsync();
         }
     }
 
