@@ -15,7 +15,7 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 - Per-process TCP and UDP traffic statistics.
 - IPv4 and IPv6 receive/send split.
 - Real-time rate view plus persisted local statistics.
-- Optional time ranges: current session, today, this month, last month, last 7 days, last 30 days, and all.
+- Optional time ranges: current session, today, this month, last month, last 7 days, last 30 days, all, and custom dates.
 - Configurable columns, minimum visible traffic threshold, and refresh interval.
 - Tray mode, close-to-tray, start with Windows, and start minimized.
 - Dark, light, and follow-system themes.
@@ -63,6 +63,10 @@ FlowLens stores settings and local traffic history under:
 - If Windows reports lost ETW events, FlowLens displays a capture warning because affected process totals may be incomplete.
 
 ## Notes
+
+To choose a period, select **Custom dates**, pick the start and end dates, and click **Apply**. Both dates are included, using local calendar days. The displayed applied range stays visible while editing; edits take effect only after Apply. The selection is saved across restarts and applies to both process totals (including IPv4/IPv6) and physical-adapter totals. Rates remain live. History is stored daily, so hour/minute selection is not supported. Missing days have no recorded traffic; the app cannot recover traffic it did not capture.
+
+自选时段：在统计范围中选择 **自定义日期**，设置开始和结束日期后点击 **应用**。包含首尾两天，按本地日期统计；进程与网卡总量使用同一范围，速率仍为实时值。日期选择会保存，重启后仍有效。历史按天保存，不支持从旧记录查询小时或分钟，也不会补算未采集的流量。
 
 FlowLens counts traffic while it is running. It does not backfill traffic that happened before the app started.
 

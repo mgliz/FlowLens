@@ -312,14 +312,16 @@ public sealed class TrafficHistoryStore
         TrafficTimeRange range,
         IEnumerable<TrafficSnapshot> current,
         string interfaceId,
-        DateTime today)
+        DateTime today,
+        DateTime? customStart = null,
+        DateTime? customEnd = null)
     {
         if (range == TrafficTimeRange.Session)
         {
             return current.ToList();
         }
 
-        var (start, endExclusive) = GetDateRange(range, today);
+        var (start, endExclusive) = GetDateRange(range, today, customStart, customEnd);
         var output = new Dictionary<string, TrafficSnapshot>();
         List<ProcessTrafficHistory> records;
         lock (_gate)
@@ -428,9 +430,17 @@ public sealed class TrafficHistoryStore
         return total;
     }
 
-    internal static (DateTime? Start, DateTime? EndExclusive) GetDateRange(TrafficTimeRange range, DateTime today)
+    internal static (DateTime? Start, DateTime? EndExclusive) GetDateRange(
+        TrafficTimeRange range, DateTime today, DateTime? customStart = null, DateTime? customEnd = null)
     {
         today = today.Date;
+        if (range == TrafficTimeRange.Custom)
+        {
+            if (customStart is null || customEnd is null || customStart.Value.Date > customEnd.Value.Date ||
+                customEnd.Value.Date > today || customEnd.Value.Date == DateTime.MaxValue.Date)
+                throw new ArgumentException("A custom range requires valid start and end dates through today.");
+            return (customStart.Value.Date, customEnd.Value.Date.AddDays(1));
+        }
         var monthStart = new DateTime(today.Year, today.Month, 1);
         return range switch
         {

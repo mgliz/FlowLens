@@ -9,6 +9,7 @@ AccountingRegressionTests.Run(Check);
 HistoryRecoveryTests.Run(Check);
 CaptureLifecycleTests.Run(Check);
 MonthlyRangeTests.Run(Check);
+CustomRangeTests.Run(Check);
 EndpointAccountingTests.Run(Check);
 const string TestInterfaceId = "test-interface";
 

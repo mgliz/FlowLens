@@ -29,6 +29,8 @@ public sealed class AppSettings
     public ulong MinimumVisibleBytes { get; set; }
     public string Language { get; set; } = Localizer.NormalizeLanguage(null);
     public TrafficTimeRange TimeRange { get; set; } = TrafficTimeRange.Session;
+    public DateTime CustomRangeStart { get; set; } = DateTime.Today;
+    public DateTime CustomRangeEnd { get; set; } = DateTime.Today;
     public AppTheme Theme { get; set; } = AppTheme.System;
     public bool ShowPidColumn { get; set; }
     public bool ShowRateColumns { get; set; } = true;
@@ -54,6 +56,11 @@ public sealed class AppSettings
                 {
                     settings.RefreshIntervalSeconds = Math.Clamp(settings.RefreshIntervalSeconds, 1, 10);
                     settings.Language = Localizer.NormalizeLanguage(settings.Language);
+                    if (!Enum.IsDefined(settings.TimeRange))
+                        settings.TimeRange = TrafficTimeRange.Session;
+                    if (settings.CustomRangeStart.Date > settings.CustomRangeEnd.Date ||
+                        settings.CustomRangeEnd.Date > DateTime.Today)
+                        settings.CustomRangeStart = settings.CustomRangeEnd = DateTime.Today;
                     return settings;
                 }
             }

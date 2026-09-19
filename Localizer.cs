@@ -72,6 +72,13 @@ public static class Localizer
             ["RangeAll"] = "All",
             ["RangeThisMonth"] = "This month",
             ["RangeLastMonth"] = "Last month",
+            ["RangeCustom"] = "Custom dates",
+            ["RangeStart"] = "Start date",
+            ["RangeEnd"] = "End date",
+            ["RangeApply"] = "Apply",
+            ["RangeHint"] = "Daily totals; both dates included.",
+            ["RangeInvalid"] = "Enter valid dates: start must be on or before end, and end cannot be in the future.",
+            ["RangeApplied"] = "Showing: {0:yyyy-MM-dd} – {1:yyyy-MM-dd}",
             ["SettingsTitle"] = "Settings",
             ["SettingsSubtitle"] = "Startup, tray behavior, refresh, language, and local statistics.",
             ["GeneralSettings"] = "General",
@@ -181,6 +188,13 @@ public static class Localizer
             ["RangeAll"] = "全部",
             ["RangeThisMonth"] = "本月",
             ["RangeLastMonth"] = "上月",
+            ["RangeCustom"] = "自定义日期",
+            ["RangeStart"] = "开始日期",
+            ["RangeEnd"] = "结束日期",
+            ["RangeApply"] = "应用",
+            ["RangeHint"] = "按天统计，包含首尾两天。",
+            ["RangeInvalid"] = "请输入有效日期：开始日期不能晚于结束日期，结束日期不能晚于今天。",
+            ["RangeApplied"] = "当前统计：{0:yyyy-MM-dd} 至 {1:yyyy-MM-dd}",
             ["SettingsTitle"] = "设置",
             ["SettingsSubtitle"] = "启动、托盘、刷新、语言和本地统计。",
             ["GeneralSettings"] = "常规",
@@ -258,7 +272,8 @@ public enum TrafficTimeRange
     Last30Days = 3,
     All = 4,
     ThisMonth = 5,
-    LastMonth = 6
+    LastMonth = 6,
+    Custom = 7
 }
 
 public enum AppTheme

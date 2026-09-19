@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add custom start/end dates with inclusive daily boundaries shared by process and physical-adapter statistics.
+- Save the selected dates across restarts and show the applied period while editing.
+- Validate missing, reversed, and future dates; provide English and Chinese controls and guidance.
+- Add regression coverage for custom ranges, cross-month boundaries, single days, empty history, adapter isolation, and settings round trips.
+
 ## 1.0.6 - 2026-09-05
 
 - Normalize TCP receive addresses and ports to packet direction before adapter filtering; UDP receive events keep their existing packet direction.

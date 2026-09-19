@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly WinForms.NotifyIcon _trayIcon;
     private bool _isExiting;
     private bool _updatingTimeRange;
+    private bool _customDateValidationFailed;
     private long _nextStatsSaveTimestamp;
     private NetworkTrafficSnapshot _latestNetworkSnapshot = NetworkTrafficSnapshot.Unavailable;
     private int _lastCaptureErrorCount;
@@ -397,7 +398,8 @@ public partial class MainWindow : Window
             : _historyStore.BuildSnapshots(
                 _settings.TimeRange,
                 _liveSnapshots.Values,
-                _latestNetworkSnapshot.InterfaceId);
+                _latestNetworkSnapshot.InterfaceId, DateTime.Today,
+                _settings.CustomRangeStart, _settings.CustomRangeEnd);
         var liveKeys = new HashSet<string>();
 
         foreach (var snapshot in snapshots)
@@ -463,7 +465,8 @@ public partial class MainWindow : Window
 
         if (_latestNetworkSnapshot.IsAvailable)
         {
-            var physicalTotals = _networkHistoryStore.GetTotals(_settings.TimeRange, _latestNetworkSnapshot);
+            var physicalTotals = _networkHistoryStore.GetTotals(_settings.TimeRange, _latestNetworkSnapshot,
+                DateTime.Today, _settings.CustomRangeStart, _settings.CustomRangeEnd);
             NetworkRateText.Text = TrafficRow.FormatRate(
                 AddSaturating(_latestNetworkSnapshot.ReceiveRate, _latestNetworkSnapshot.SendRate));
             NetworkReceiveRateText.Text = TrafficRow.FormatRate(_latestNetworkSnapshot.ReceiveRate);
@@ -579,7 +582,61 @@ public partial class MainWindow : Window
         }
 
         _settings.TimeRange = item.Range;
+        UpdateCustomRangeControls();
         _settings.Save();
+        RebuildDisplayedRows();
+        UpdateMetrics();
+    }
+
+    private void UpdateCustomRangeControls()
+    {
+        CustomRangePanel.Visibility = _settings.TimeRange == TrafficTimeRange.Custom
+            ? Visibility.Visible : Visibility.Collapsed;
+        var dateLanguage = System.Windows.Markup.XmlLanguage.GetLanguage(
+            System.Globalization.CultureInfo.CurrentCulture.IetfLanguageTag);
+        CustomStartPicker.Language = CustomEndPicker.Language = dateLanguage;
+        CustomStartPicker.DisplayDateEnd = CustomEndPicker.DisplayDateEnd = DateTime.Today;
+        CustomStartPicker.SelectedDate = _settings.CustomRangeStart;
+        CustomEndPicker.SelectedDate = _settings.CustomRangeEnd;
+        CustomRangeAppliedText.Text = string.Format(L("RangeApplied"),
+            _settings.CustomRangeStart, _settings.CustomRangeEnd);
+        CustomRangeError.Visibility = Visibility.Collapsed;
+        _customDateValidationFailed = false;
+    }
+
+    private void CustomDate_ValidationError(object? sender, DatePickerDateValidationErrorEventArgs e)
+    {
+        e.ThrowException = false;
+        _customDateValidationFailed = true;
+        CustomRangeError.Text = L("RangeInvalid");
+        CustomRangeError.Visibility = Visibility.Visible;
+    }
+
+    private void CustomRangeApply_Click(object sender, RoutedEventArgs e)
+    {
+        // DatePicker may restore its old text after rejecting a typed date.
+        // Do not silently apply that restored value on the same click.
+        if (_customDateValidationFailed)
+        {
+            _customDateValidationFailed = false;
+            CustomRangeError.Text = L("RangeInvalid");
+            CustomRangeError.Visibility = Visibility.Visible;
+            return;
+        }
+
+        if (!DateTime.TryParse(CustomStartPicker.Text, out var start) ||
+            !DateTime.TryParse(CustomEndPicker.Text, out var end) ||
+            start.Date > end.Date || end.Date > DateTime.Today)
+        {
+            CustomRangeError.Text = L("RangeInvalid");
+            CustomRangeError.Visibility = Visibility.Visible;
+            return;
+        }
+
+        _settings.CustomRangeStart = start.Date;
+        _settings.CustomRangeEnd = end.Date;
+        _settings.Save();
+        UpdateCustomRangeControls();
         RebuildDisplayedRows();
         UpdateMetrics();
     }
@@ -682,6 +739,13 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(SettingsButton, L("Settings"));
         AutomationProperties.SetName(AboutButton, L("About"));
         AutomationProperties.SetName(TimeRangeBox, L("TimeRange"));
+        CustomStartLabel.Text = L("RangeStart");
+        CustomEndLabel.Text = L("RangeEnd");
+        CustomRangeApplyButton.Content = L("RangeApply");
+        CustomRangeHint.Text = L("RangeHint");
+        AutomationProperties.SetName(CustomStartPicker, L("RangeStart"));
+        AutomationProperties.SetName(CustomEndPicker, L("RangeEnd"));
+        UpdateCustomRangeControls();
         NetworkSectionTitleText.Text = L("PhysicalNetworkTraffic");
         AttributionSectionTitleText.Text = L("AttributedProcessTraffic");
         ProcessTableTitleText.Text = L("ProcessDetails");
@@ -709,7 +773,8 @@ public partial class MainWindow : Window
                 new TimeRangeItem(TrafficTimeRange.LastMonth, L("RangeLastMonth")),
                 new TimeRangeItem(TrafficTimeRange.Last7Days, L("Range7Days")),
                 new TimeRangeItem(TrafficTimeRange.Last30Days, L("Range30Days")),
-                new TimeRangeItem(TrafficTimeRange.All, L("RangeAll"))
+                new TimeRangeItem(TrafficTimeRange.All, L("RangeAll")),
+                new TimeRangeItem(TrafficTimeRange.Custom, L("RangeCustom"))
             };
             TimeRangeBox.SelectedItem = TimeRangeBox.Items.Cast<TimeRangeItem>().First(item => item.Range == _settings.TimeRange);
         }

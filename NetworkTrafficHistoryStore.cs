@@ -138,7 +138,8 @@ public sealed class NetworkTrafficHistoryStore
         return GetTotals(range, current, DateTime.Today);
     }
 
-    internal NetworkTrafficCounters GetTotals(TrafficTimeRange range, NetworkTrafficSnapshot current, DateTime today)
+    internal NetworkTrafficCounters GetTotals(TrafficTimeRange range, NetworkTrafficSnapshot current, DateTime today,
+        DateTime? customStart = null, DateTime? customEnd = null)
     {
         if (range == TrafficTimeRange.Session)
         {
@@ -149,7 +150,7 @@ public sealed class NetworkTrafficHistoryStore
             };
         }
 
-        var (start, endExclusive) = TrafficHistoryStore.GetDateRange(range, today);
+        var (start, endExclusive) = TrafficHistoryStore.GetDateRange(range, today, customStart, customEnd);
         var output = new NetworkTrafficCounters();
         Dictionary<string, NetworkTrafficCounters> buckets;
         lock (_gate)
