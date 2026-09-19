@@ -10,6 +10,7 @@ HistoryRecoveryTests.Run(Check);
 CaptureLifecycleTests.Run(Check);
 MonthlyRangeTests.Run(Check);
 CustomRangeTests.Run(Check);
+HourlyHistoryTests.Run(Check);
 EndpointAccountingTests.Run(Check);
 const string TestInterfaceId = "test-interface";
 

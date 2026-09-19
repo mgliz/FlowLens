@@ -1,5 +1,4 @@
 using System.IO;
-using System.Globalization;
 using System.Text.Json;
 
 namespace FlowLens;
@@ -14,7 +13,8 @@ public sealed class TrafficHistoryStore
     private readonly IReadOnlyList<string> _historyPathsToClear;
     private string _loadError = string.Empty;
 
-    public static string HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v8.json");
+    public static string HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v9.json");
+    public static string DailyHistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v8.json");
     public static string PreviousHistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v7.json");
     public static string PreviousV6HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v6.json");
     public static string PreviousV5HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v5.json");
@@ -71,7 +71,7 @@ public sealed class TrafficHistoryStore
 
     public static TrafficHistoryStore Load()
     {
-        return Load(HistoryPath, ProductionHistoryPaths());
+        return Load(HistoryPath, ProductionHistoryPaths(), DailyHistoryPath);
     }
 
     internal static TrafficHistoryStore Load(string historyPath)
@@ -79,12 +79,18 @@ public sealed class TrafficHistoryStore
         return Load(historyPath, [historyPath]);
     }
 
-    private static TrafficHistoryStore Load(string historyPath, IReadOnlyList<string> historyPathsToClear)
+    internal static TrafficHistoryStore LoadWithDailyHistory(string historyPath, string dailyPath) =>
+        Load(historyPath, [historyPath, dailyPath], dailyPath);
+
+    private static TrafficHistoryStore Load(string historyPath, IReadOnlyList<string> historyPathsToClear, string? dailyPath = null)
     {
         var store = new TrafficHistoryStore(historyPath, historyPathsToClear);
         try
         {
-            var records = JsonSerializer.Deserialize<List<ProcessTrafficHistory>>(File.ReadAllText(historyPath))
+            string json;
+            try { json = File.ReadAllText(historyPath); }
+            catch (FileNotFoundException) when (dailyPath is not null) { json = File.ReadAllText(dailyPath); }
+            var records = JsonSerializer.Deserialize<List<ProcessTrafficHistory>>(json)
                 ?? throw new JsonException("The process traffic history document is null.");
             var loadedRecords = new Dictionary<string, ProcessTrafficHistory>();
             foreach (var record in records)
@@ -237,6 +243,7 @@ public sealed class TrafficHistoryStore
         return
         [
             HistoryPath,
+            DailyHistoryPath,
             PreviousHistoryPath,
             PreviousV6HistoryPath,
             PreviousV5HistoryPath,
@@ -276,7 +283,7 @@ public sealed class TrafficHistoryStore
             record.ProcessName = processName;
             record.Path = path;
             record.LastSeen = timestamp;
-            var bucketKey = BucketKeyFor(interfaceId, timestamp);
+            var bucketKey = HistoryBucket.Key(interfaceId, timestamp);
 
             if (!record.Buckets.TryGetValue(bucketKey, out var bucket))
             {
@@ -334,13 +341,7 @@ public sealed class TrafficHistoryStore
             var counters = new TrafficCounters();
             foreach (var pair in record.Buckets)
             {
-                if (!TryGetBucketDate(pair.Key, interfaceId, out var bucketDate))
-                {
-                    continue;
-                }
-
-                if ((start is null || bucketDate.Date >= start.Value.Date)
-                    && (endExclusive is null || bucketDate.Date < endExclusive.Value.Date))
+                if (HistoryBucket.IsIncluded(pair.Key, interfaceId, start, endExclusive))
                 {
                     counters.Add(pair.Value);
                 }
@@ -361,33 +362,6 @@ public sealed class TrafficHistoryStore
         }
 
         return output.Values.ToList();
-    }
-
-    private static string BucketKeyFor(string interfaceId, DateTime timestamp)
-    {
-        return $"{interfaceId}|{timestamp.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
-    }
-
-    private static bool TryGetBucketDate(string key, string interfaceId, out DateTime date)
-    {
-        date = default;
-        if (string.IsNullOrWhiteSpace(interfaceId))
-        {
-            return false;
-        }
-
-        var prefix = interfaceId + "|";
-        if (!key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return DateTime.TryParseExact(
-            key[prefix.Length..],
-            "yyyy-MM-dd",
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.None,
-            out date);
     }
 
     private static IEnumerable<TrafficSnapshot> AggregateCurrentByStableKey(IEnumerable<TrafficSnapshot> current)
@@ -436,10 +410,10 @@ public sealed class TrafficHistoryStore
         today = today.Date;
         if (range == TrafficTimeRange.Custom)
         {
-            if (customStart is null || customEnd is null || customStart.Value.Date > customEnd.Value.Date ||
+            if (customStart is null || customEnd is null || HistoryBucket.Hour(customStart.Value) > HistoryBucket.Hour(customEnd.Value) ||
                 customEnd.Value.Date > today || customEnd.Value.Date == DateTime.MaxValue.Date)
                 throw new ArgumentException("A custom range requires valid start and end dates through today.");
-            return (customStart.Value.Date, customEnd.Value.Date.AddDays(1));
+            return (HistoryBucket.Hour(customStart.Value), HistoryBucket.Hour(customEnd.Value).AddHours(1));
         }
         var monthStart = new DateTime(today.Year, today.Month, 1);
         return range switch

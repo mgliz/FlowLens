@@ -31,7 +31,8 @@ public partial class MainWindow : Window
     private readonly WinForms.NotifyIcon _trayIcon;
     private bool _isExiting;
     private bool _updatingTimeRange;
-    private bool _customDateValidationFailed;
+    private readonly HashSet<DatePicker> _invalidCustomDates = [];
+    private readonly HashSet<DatePicker> _restoringCustomDates = [];
     private long _nextStatsSaveTimestamp;
     private NetworkTrafficSnapshot _latestNetworkSnapshot = NetworkTrafficSnapshot.Unavailable;
     private int _lastCaptureErrorCount;
@@ -399,7 +400,7 @@ public partial class MainWindow : Window
                 _settings.TimeRange,
                 _liveSnapshots.Values,
                 _latestNetworkSnapshot.InterfaceId, DateTime.Today,
-                _settings.CustomRangeStart, _settings.CustomRangeEnd);
+                _settings.CustomStartTime, _settings.CustomEndTime);
         var liveKeys = new HashSet<string>();
 
         foreach (var snapshot in snapshots)
@@ -466,7 +467,7 @@ public partial class MainWindow : Window
         if (_latestNetworkSnapshot.IsAvailable)
         {
             var physicalTotals = _networkHistoryStore.GetTotals(_settings.TimeRange, _latestNetworkSnapshot,
-                DateTime.Today, _settings.CustomRangeStart, _settings.CustomRangeEnd);
+                DateTime.Today, _settings.CustomStartTime, _settings.CustomEndTime);
             NetworkRateText.Text = TrafficRow.FormatRate(
                 AddSaturating(_latestNetworkSnapshot.ReceiveRate, _latestNetworkSnapshot.SendRate));
             NetworkReceiveRateText.Text = TrafficRow.FormatRate(_latestNetworkSnapshot.ReceiveRate);
@@ -598,43 +599,79 @@ public partial class MainWindow : Window
         CustomStartPicker.DisplayDateEnd = CustomEndPicker.DisplayDateEnd = DateTime.Today;
         CustomStartPicker.SelectedDate = _settings.CustomRangeStart;
         CustomEndPicker.SelectedDate = _settings.CustomRangeEnd;
+        CustomStartHourBox.ItemsSource = CustomEndHourBox.ItemsSource =
+            Enumerable.Range(0, 24).Select(hour => $"{hour:00}:00").ToArray();
+        CustomStartHourBox.SelectedIndex = _settings.CustomStartHour;
+        CustomEndHourBox.SelectedIndex = _settings.CustomEndHour;
         CustomRangeAppliedText.Text = string.Format(L("RangeApplied"),
-            _settings.CustomRangeStart, _settings.CustomRangeEnd);
+            _settings.CustomStartTime, _settings.CustomEndTime.AddHours(1));
         CustomRangeError.Visibility = Visibility.Collapsed;
-        _customDateValidationFailed = false;
+        _invalidCustomDates.Clear();
     }
 
     private void CustomDate_ValidationError(object? sender, DatePickerDateValidationErrorEventArgs e)
     {
         e.ThrowException = false;
-        _customDateValidationFailed = true;
+        if (sender is DatePicker picker)
+        {
+            _invalidCustomDates.Add(picker);
+            _restoringCustomDates.Add(picker);
+            // WPF restores the old text synchronously after this event. That
+            // restoration is not a user correction; later valid edits are.
+            Dispatcher.BeginInvoke(new Action(() => _restoringCustomDates.Remove(picker)),
+                System.Windows.Threading.DispatcherPriority.Background);
+        }
         CustomRangeError.Text = L("RangeInvalid");
         CustomRangeError.Visibility = Visibility.Visible;
     }
 
-    private void CustomRangeApply_Click(object sender, RoutedEventArgs e)
+    private void CustomDate_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (sender is DatePicker picker && !_restoringCustomDates.Contains(picker) &&
+            e.OriginalSource is System.Windows.Controls.TextBox input &&
+            DateTime.TryParse(input.Text, out var date) && date.Date <= DateTime.Today)
+            _invalidCustomDates.Remove(picker);
+    }
+
+    private void CustomCalendar_Opened(object sender, RoutedEventArgs e)
+    {
+        CustomStartPicker.DisplayDateEnd = CustomEndPicker.DisplayDateEnd = DateTime.Today;
+    }
+
+    private bool TryReadCustomRange(out DateTime start, out DateTime end)
+    {
+        start = end = default;
         // DatePicker may restore its old text after rejecting a typed date.
         // Do not silently apply that restored value on the same click.
-        if (_customDateValidationFailed)
+        if (_invalidCustomDates.Count > 0)
         {
-            _customDateValidationFailed = false;
             CustomRangeError.Text = L("RangeInvalid");
             CustomRangeError.Visibility = Visibility.Visible;
-            return;
+            return false;
         }
 
-        if (!DateTime.TryParse(CustomStartPicker.Text, out var start) ||
-            !DateTime.TryParse(CustomEndPicker.Text, out var end) ||
-            start.Date > end.Date || end.Date > DateTime.Today)
+        if (!DateTime.TryParse(CustomStartPicker.Text, out start) ||
+            !DateTime.TryParse(CustomEndPicker.Text, out end) ||
+            CustomStartHourBox.SelectedIndex < 0 || CustomEndHourBox.SelectedIndex < 0 ||
+            start.Date.AddHours(CustomStartHourBox.SelectedIndex) > end.Date.AddHours(CustomEndHourBox.SelectedIndex) ||
+            end.Date > DateTime.Today)
         {
             CustomRangeError.Text = L("RangeInvalid");
             CustomRangeError.Visibility = Visibility.Visible;
-            return;
+            return false;
         }
+
+        return true;
+    }
+
+    private void CustomRangeApply_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryReadCustomRange(out var start, out var end)) return;
 
         _settings.CustomRangeStart = start.Date;
         _settings.CustomRangeEnd = end.Date;
+        _settings.CustomStartHour = CustomStartHourBox.SelectedIndex;
+        _settings.CustomEndHour = CustomEndHourBox.SelectedIndex;
         _settings.Save();
         UpdateCustomRangeControls();
         RebuildDisplayedRows();
@@ -743,8 +780,11 @@ public partial class MainWindow : Window
         CustomEndLabel.Text = L("RangeEnd");
         CustomRangeApplyButton.Content = L("RangeApply");
         CustomRangeHint.Text = L("RangeHint");
+        CustomHistoryHint.Text = L("HourlyHistoryHint");
         AutomationProperties.SetName(CustomStartPicker, L("RangeStart"));
         AutomationProperties.SetName(CustomEndPicker, L("RangeEnd"));
+        AutomationProperties.SetName(CustomStartHourBox, L("RangeStartHour"));
+        AutomationProperties.SetName(CustomEndHourBox, L("RangeEndHour"));
         UpdateCustomRangeControls();
         NetworkSectionTitleText.Text = L("PhysicalNetworkTraffic");
         AttributionSectionTitleText.Text = L("AttributedProcessTraffic");

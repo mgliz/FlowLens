@@ -57,17 +57,19 @@ internal static class HistoryRecoveryTests
     private static void CheckVersionedPaths(Action<bool, string> check)
     {
         check(
-            TrafficHistoryStore.HistoryPath.EndsWith("history-v8.json", StringComparison.OrdinalIgnoreCase) &&
+            TrafficHistoryStore.HistoryPath.EndsWith("history-v9.json", StringComparison.OrdinalIgnoreCase) &&
+            TrafficHistoryStore.DailyHistoryPath.EndsWith("history-v8.json", StringComparison.OrdinalIgnoreCase) &&
             TrafficHistoryStore.PreviousHistoryPath.EndsWith("history-v7.json", StringComparison.OrdinalIgnoreCase) &&
             TrafficHistoryStore.PreviousV6HistoryPath.EndsWith("history-v6.json", StringComparison.OrdinalIgnoreCase) &&
             TrafficHistoryStore.PreviousV5HistoryPath.EndsWith("history-v5.json", StringComparison.OrdinalIgnoreCase),
-            "Corrected process history must use v8 while retaining all previous paths.");
+            "Hourly process history must use v9 while retaining all previous paths.");
         check(
-            NetworkTrafficHistoryStore.HistoryPath.EndsWith("network-history-v7.json", StringComparison.OrdinalIgnoreCase) &&
+            NetworkTrafficHistoryStore.HistoryPath.EndsWith("network-history-v8.json", StringComparison.OrdinalIgnoreCase) &&
+            NetworkTrafficHistoryStore.DailyHistoryPath.EndsWith("network-history-v7.json", StringComparison.OrdinalIgnoreCase) &&
             NetworkTrafficHistoryStore.PreviousHistoryPath.EndsWith("network-history-v6.json", StringComparison.OrdinalIgnoreCase) &&
             NetworkTrafficHistoryStore.PreviousV5HistoryPath.EndsWith("network-history-v5.json", StringComparison.OrdinalIgnoreCase) &&
             NetworkTrafficHistoryStore.PreviousV4HistoryPath.EndsWith("network-history-v4.json", StringComparison.OrdinalIgnoreCase),
-            "Corrected network history must use v7 while retaining all previous paths.");
+            "Hourly network history must use v8 while retaining all previous paths.");
     }
 
     private static void CheckProcessHistoryRecovery(string temporaryDirectory, Action<bool, string> check)
@@ -205,7 +207,7 @@ internal static class HistoryRecoveryTests
         check(recoveredSaveException is null, "Network history must be saveable after an explicit clear.");
 
         var document = JsonSerializer.Deserialize<NetworkTrafficHistoryDocument>(File.ReadAllText(corruptPath));
-        check(document?.Version == 7, "Saved network history documents must declare version 7.");
+        check(document?.Version == 8, "Saved network history documents must declare version 8.");
 
         var loadedStore = NetworkTrafficHistoryStore.Load(corruptPath);
         var totals = loadedStore.GetTotals(TrafficTimeRange.All, current);

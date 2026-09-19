@@ -42,7 +42,7 @@ internal sealed class TrafficHistoryAccumulator(
                 if (delta is not null)
                 {
                     processHistory.AddDelta(
-                        process.ProcessName, process.Path, delta, process.LastSeen,
+                        process.ProcessName, process.Path, delta, snapshot.CapturedAt,
                         snapshot.Network.InterfaceId);
                 }
             }

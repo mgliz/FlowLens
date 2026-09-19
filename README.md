@@ -15,7 +15,7 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 - Per-process TCP and UDP traffic statistics.
 - IPv4 and IPv6 receive/send split.
 - Real-time rate view plus persisted local statistics.
-- Optional time ranges: current session, today, this month, last month, last 7 days, last 30 days, all, and custom dates.
+- Optional time ranges: current session, today, this month, last month, last 7 days, last 30 days, all, and custom dates/hours.
 - Configurable columns, minimum visible traffic threshold, and refresh interval.
 - Tray mode, close-to-tray, start with Windows, and start minimized.
 - Dark, light, and follow-system themes.
@@ -25,15 +25,15 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 ## Requirements
 
 - Windows 10/11 x64.
-- .NET 8 Windows Desktop Runtime, unless you publish a self-contained build.
+- The official self-contained Windows x64 download includes the .NET runtime; no separate .NET installation is required.
 - Administrator privileges for ETW network capture.
 
 ## Download
 
-The local `1.0.6` maintenance build is packaged as:
+Download the self-contained [FlowLens 1.0.5 Windows x64 package](https://github.com/mgliz/FlowLens/releases/download/v1.0.5/FlowLens-1.0.5-win-x64.zip) from [GitHub Releases](https://github.com/mgliz/FlowLens/releases/latest):
 
 ```text
-FlowLens-1.0.6-win-x64.zip
+FlowLens-1.0.5-win-x64.zip
 ```
 
 Unzip it and run `FlowLens.exe` as administrator.
@@ -43,7 +43,7 @@ Unzip it and run `FlowLens.exe` as administrator.
 ```powershell
 dotnet restore
 dotnet build .\FlowLens.csproj -c Release
-dotnet publish .\FlowLens.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+dotnet publish .\FlowLens.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 ## Data
@@ -64,13 +64,13 @@ FlowLens stores settings and local traffic history under:
 
 ## Notes
 
-To choose a period, select **Custom dates**, pick the start and end dates, and click **Apply**. Both dates are included, using local calendar days. The displayed applied range stays visible while editing; edits take effect only after Apply. The selection is saved across restarts and applies to both process totals (including IPv4/IPv6) and physical-adapter totals. Rates remain live. History is stored daily, so hour/minute selection is not supported. Missing days have no recorded traffic; the app cannot recover traffic it did not capture.
+To choose a period, select **Custom period**, pick the start and end dates/hours, and click **Apply**. Both selected hours are included: 09:00 through 10:00 means [09:00, 11:00). The displayed applied range explicitly shows the exclusive cutoff. Selection survives restarts and applies to process totals (including IPv4/IPv6) and physical-adapter totals; rates remain live. New history uses local calendar-hour buckets. Each sampling interval is assigned to the snapshot hour, so traffic around an hour boundary can shift by one sampling interval (normally 1 second, configurable to 10); it is not per-packet timestamp reconstruction. Repeated local hours during daylight-saving changes share a bucket.
 
-自选时段：在统计范围中选择 **自定义日期**，设置开始和结束日期后点击 **应用**。包含首尾两天，按本地日期统计；进程与网卡总量使用同一范围，速率仍为实时值。日期选择会保存，重启后仍有效。历史按天保存，不支持从旧记录查询小时或分钟，也不会补算未采集的流量。
+自选时段：选择 **自定义时段**，设置起止日期和小时后点击 **应用**。包含首尾所选小时，例如 09:00 至 10:00 表示统计 09:00 到 11:00 之前的流量。进程和网卡总量使用同一范围，重启后保留选择，速率仍为实时值。新数据按本地小时保存；跨整点的一次采样归到采样结束所在小时，边界可能偏移一个采样间隔。旧日统计不会拆分或平均分配到小时，仅当范围完整包含该天时计入；选择部分小时会排除该日旧数据，界面会持续显示这一限制。
 
 FlowLens counts traffic while it is running. It does not backfill traffic that happened before the app started.
 
-Adapter-aligned process accounting is stored in `history-v8.json`, with matching adapter totals in `network-history-v7.json`. Buckets are isolated by the actual Windows interface ID; earlier history files remain local but are not mixed into corrected totals. Version 1.0.6 starts a new history for the corrected receive-endpoint filter; it does not migrate or delete existing history files.
+Hourly process accounting is stored in `history-v9.json`, with adapter totals in `network-history-v8.json`. Buckets are isolated by the actual Windows interface ID. On the first start with no new history file, the corrected local daily files (`history-v8.json` / `network-history-v7.json`) are copied in memory with their original daily keys and subsequently saved to the new files. Originals are preserved. Restarting uses the new files and does not import again. Older, known-incompatible accounting histories remain isolated. A corrupt new file blocks saving and is not replaced by fallback data. Daily totals are included only for fully selected calendar days; missing hourly detail cannot be recovered.
 
 Every source snapshot updates history before UI rendering can coalesce refreshes. Incomplete intervals spanning capture failures or adapter recovery establish a new baseline and are excluded from both histories. A normal exit records the final complete interval before saving. If a history file cannot be read, the app reports a persistence error and refuses to overwrite that file.
 

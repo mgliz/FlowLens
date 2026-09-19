@@ -22,10 +22,10 @@ internal static class CustomRangeTests
 
         foreach (var (start, end, days) in new[]
         {
-            (new DateTime(2026, 8, 31), new DateTime(2026, 9, 2), 3),
-            (today, today, 1),
-            (new DateTime(2026, 9, 1, 18, 0, 0), new DateTime(2026, 9, 1, 1, 0, 0), 1),
-            (new DateTime(2026, 7, 1), new DateTime(2026, 7, 31), 0)
+            (new DateTime(2026, 8, 31), new DateTime(2026, 9, 2, 23, 0, 0), 3),
+            (today, today.AddHours(23), 1),
+            (new DateTime(2026, 9, 1, 18, 0, 0), new DateTime(2026, 9, 1, 23, 0, 0), 1),
+            (new DateTime(2026, 7, 1), new DateTime(2026, 7, 31, 23, 0, 0), 0)
         })
         {
             var rows = process.BuildSnapshots(TrafficTimeRange.Custom, [], adapter, today, start, end);

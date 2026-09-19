@@ -1,5 +1,4 @@
 using System.IO;
-using System.Globalization;
 using System.Text.Json;
 
 namespace FlowLens;
@@ -12,7 +11,8 @@ public sealed class NetworkTrafficHistoryStore
     private readonly IReadOnlyList<string> _historyPathsToClear;
     private string _loadError = string.Empty;
 
-    public static string HistoryPath => Path.Combine(AppSettings.AppDataDir, "network-history-v7.json");
+    public static string HistoryPath => Path.Combine(AppSettings.AppDataDir, "network-history-v8.json");
+    public static string DailyHistoryPath => Path.Combine(AppSettings.AppDataDir, "network-history-v7.json");
     public static string PreviousHistoryPath => Path.Combine(AppSettings.AppDataDir, "network-history-v6.json");
     public static string PreviousV5HistoryPath => Path.Combine(AppSettings.AppDataDir, "network-history-v5.json");
     public static string PreviousV4HistoryPath => Path.Combine(AppSettings.AppDataDir, "network-history-v4.json");
@@ -56,7 +56,7 @@ public sealed class NetworkTrafficHistoryStore
 
     public static NetworkTrafficHistoryStore Load()
     {
-        return Load(HistoryPath, ProductionHistoryPaths());
+        return Load(HistoryPath, ProductionHistoryPaths(), DailyHistoryPath);
     }
 
     internal static NetworkTrafficHistoryStore Load(string historyPath)
@@ -64,14 +64,20 @@ public sealed class NetworkTrafficHistoryStore
         return Load(historyPath, [historyPath]);
     }
 
-    private static NetworkTrafficHistoryStore Load(string historyPath, IReadOnlyList<string> historyPathsToClear)
+    internal static NetworkTrafficHistoryStore LoadWithDailyHistory(string historyPath, string dailyPath) =>
+        Load(historyPath, [historyPath, dailyPath], dailyPath);
+
+    private static NetworkTrafficHistoryStore Load(string historyPath, IReadOnlyList<string> historyPathsToClear, string? dailyPath = null)
     {
         var store = new NetworkTrafficHistoryStore(historyPath, historyPathsToClear);
         try
         {
-            var document = JsonSerializer.Deserialize<NetworkTrafficHistoryDocument>(File.ReadAllText(historyPath))
+            string json;
+            try { json = File.ReadAllText(historyPath); }
+            catch (FileNotFoundException) when (dailyPath is not null) { json = File.ReadAllText(dailyPath); }
+            var document = JsonSerializer.Deserialize<NetworkTrafficHistoryDocument>(json)
                 ?? throw new JsonException("The network traffic history document is null.");
-            if (document.Version != 7)
+            if (document.Version is not (7 or 8))
             {
                 throw new JsonException($"Unsupported network traffic history version {document.Version}.");
             }
@@ -121,7 +127,7 @@ public sealed class NetworkTrafficHistoryStore
 
         lock (_gate)
         {
-            var bucketKey = BucketKeyFor(snapshot.InterfaceId, timestamp);
+            var bucketKey = HistoryBucket.Key(snapshot.InterfaceId, timestamp);
             if (!_buckets.TryGetValue(bucketKey, out var bucket))
             {
                 bucket = new NetworkTrafficCounters();
@@ -160,13 +166,7 @@ public sealed class NetworkTrafficHistoryStore
 
         foreach (var pair in buckets)
         {
-            if (!TryGetBucketDate(pair.Key, current.InterfaceId, out var bucketDate))
-            {
-                continue;
-            }
-
-            if ((start is null || bucketDate.Date >= start.Value.Date)
-                && (endExclusive is null || bucketDate.Date < endExclusive.Value.Date))
+            if (HistoryBucket.IsIncluded(pair.Key, current.InterfaceId, start, endExclusive))
             {
                 output.Received = AddSaturating(output.Received, pair.Value.Received);
                 output.Sent = AddSaturating(output.Sent, pair.Value.Sent);
@@ -192,7 +192,7 @@ public sealed class NetworkTrafficHistoryStore
 
         var document = new NetworkTrafficHistoryDocument
         {
-            Version = 7,
+            Version = 8,
             Buckets = buckets
         };
         AtomicFile.WriteAllText(_historyPath, JsonSerializer.Serialize(document));
@@ -226,6 +226,7 @@ public sealed class NetworkTrafficHistoryStore
         return
         [
             HistoryPath,
+            DailyHistoryPath,
             PreviousHistoryPath,
             PreviousV5HistoryPath,
             PreviousV4HistoryPath,
@@ -233,33 +234,6 @@ public sealed class NetworkTrafficHistoryStore
             PreviousV2HistoryPath,
             LegacyHistoryPath
         ];
-    }
-
-    private static string BucketKeyFor(string interfaceId, DateTime timestamp)
-    {
-        return $"{interfaceId}|{timestamp.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
-    }
-
-    private static bool TryGetBucketDate(string key, string interfaceId, out DateTime date)
-    {
-        date = default;
-        if (string.IsNullOrWhiteSpace(interfaceId))
-        {
-            return false;
-        }
-
-        var prefix = interfaceId + "|";
-        if (!key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return DateTime.TryParseExact(
-            key[prefix.Length..],
-            "yyyy-MM-dd",
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.None,
-            out date);
     }
 
     private static ulong AddSaturating(ulong left, ulong right)
@@ -270,7 +244,7 @@ public sealed class NetworkTrafficHistoryStore
 
 public sealed class NetworkTrafficHistoryDocument
 {
-    public int Version { get; set; } = 7;
+    public int Version { get; set; } = 8;
     public Dictionary<string, NetworkTrafficCounters> Buckets { get; set; } = [];
 }
 
