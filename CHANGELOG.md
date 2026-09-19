@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.6 - 2026-09-05
+
+- Normalize TCP receive addresses and ports to packet direction before adapter filtering; UDP receive events keep their existing packet direction.
+- Require a known endpoint on the selected adapter instead of accepting arbitrary receive destinations, preventing cross-adapter TCP receive traffic from entering its totals.
+- Use the same connection key for TCP sends and receives.
+- Add calendar-month ranges for this month and last month without changing existing saved range values.
+- Label binary byte quantities as KiB, MiB, GiB, and TiB.
+- Preserve earlier histories and start process v8 and adapter v7 histories for the corrected filter.
+- Add endpoint, connection, and calendar-boundary regression coverage.
+
+## 1.0.5 - 2026-09-05
+
+- Persist every source snapshot before coalescing UI refreshes, preventing physical-history gaps while the window is busy.
+- Retain process persistence baselines until counters actually disappear from the source, preventing repeated replay of idle PID 0 traffic.
+- Release the single-instance mutex only when owned, fixing the secondary instance's shutdown crash.
+- Track capture continuity across failures, restarts, and unavailable adapters so incomplete intervals cannot enter aligned history.
+- Stop snapshot production and drain capture before publishing and saving the final interval on normal exit.
+- Preserve unreadable history files and surface the load failure instead of replacing them with empty history.
+- Start corrected process and adapter histories in v7 and v6 files while preserving all earlier files.
+- Add regression coverage for coalesced rendering, idle counters, persistence toggles, reset generations, capture lifecycle, mutex ownership, and history recovery.
+
 ## 1.0.4 - 2026-08-18
 
 - Rebuilt Windows startup registration with an unquoted executable action, a per-user delayed logon trigger, battery-safe settings, no 72-hour execution limit, and automatic repair after the executable moves or the task disappears.

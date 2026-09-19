@@ -23,11 +23,13 @@ public sealed class EtwTrafficMonitor : IDisposable
     private readonly Dictionary<ProcessInstanceKey, Dictionary<FlowKey, long>> _recentFlows = [];
     private readonly Dictionary<int, ActiveProcess> _activeProcesses = [];
     private readonly NetworkAdapterSampler _networkSampler = new();
+    private readonly CaptureContinuityTracker _captureContinuity = new();
     private readonly string _sessionName = $"FlowLens-KernelNetwork-{Environment.ProcessId}";
 
     private HashSet<IPAddress> _localAddresses = [];
     private HashSet<IPAddress> _selectedAdapterAddresses = [];
     private CancellationTokenSource? _cancellation;
+    private CancellationTokenSource? _snapshotCancellation;
     private TraceEventSession? _session;
     private Task? _eventTask;
     private Task? _snapshotTask;
@@ -43,6 +45,8 @@ public sealed class EtwTrafficMonitor : IDisposable
     private bool _trackFlows = true;
     private int _captureActive;
     private int _started;
+    private int _stopInProgress;
+    private bool _finalSnapshotPending;
 
     public event EventHandler<MonitorSnapshotEventArgs>? SnapshotReady;
 
@@ -88,6 +92,7 @@ public sealed class EtwTrafficMonitor : IDisposable
         lock (_lifecycleGate)
         {
             if (Volatile.Read(ref _started) != 0
+                || Volatile.Read(ref _stopInProgress) != 0
                 || _eventTask is { IsCompleted: false }
                 || _snapshotTask is { IsCompleted: false })
             {
@@ -95,33 +100,90 @@ public sealed class EtwTrafficMonitor : IDisposable
             }
 
             RefreshLocalAddresses();
+            _captureContinuity.ResetSampleBaseline();
+            var captureBoundary = _captureContinuity.BeginSample();
             var network = _networkSampler.Sample();
+            _captureContinuity.CompleteSample(captureBoundary, network);
             _lastAdapterEpoch = network.AdapterEpoch;
             UpdateSelectedAdapterAddresses();
             _lastSnapshotTimestamp = Stopwatch.GetTimestamp();
 
             var cancellation = new CancellationTokenSource();
+            var snapshotCancellation = new CancellationTokenSource();
             _cancellation = cancellation;
+            _snapshotCancellation = snapshotCancellation;
+            _finalSnapshotPending = true;
             Volatile.Write(ref _started, 1);
             _eventTask = Task.Run(() => RunEtwLoopAsync(cancellation.Token));
-            _snapshotTask = Task.Run(() => PublishSnapshotsAsync(cancellation.Token));
+            _snapshotTask = Task.Run(() => PublishSnapshotsAsync(snapshotCancellation.Token));
         }
     }
 
     public void Stop()
     {
+        if (Interlocked.CompareExchange(ref _stopInProgress, 1, 0) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            StopCore();
+        }
+        finally
+        {
+            Volatile.Write(ref _stopInProgress, 0);
+        }
+    }
+
+    private void StopCore()
+    {
         CancellationTokenSource? cancellation;
+        CancellationTokenSource? snapshotCancellation;
+        Task? snapshotTask;
         Task[] tasks;
+        bool publishFinal;
         lock (_lifecycleGate)
         {
+            if (!_finalSnapshotPending && _cancellation is null)
+            {
+                return;
+            }
+
             Volatile.Write(ref _started, 0);
             cancellation = _cancellation;
+            snapshotCancellation = _snapshotCancellation;
+            snapshotTask = _snapshotTask;
+            publishFinal = _finalSnapshotPending;
+            _finalSnapshotPending = false;
             tasks = new[] { _eventTask, _snapshotTask }
                 .Where(task => task is not null)
                 .Cast<Task>()
                 .ToArray();
         }
 
+        var stopTimestamp = Stopwatch.GetTimestamp();
+        snapshotCancellation?.Cancel();
+        // Finish ordinary snapshots before stopping capture, so they cannot consume
+        // the final interval with an inactive capture flag.
+        var snapshotsStopped = WaitForTasks(snapshotTask is null ? [] : [snapshotTask], stopTimestamp);
+        NetworkSample? finalNetworkSample = null;
+        if (snapshotsStopped && publishFinal)
+        {
+            try
+            {
+                lock (_snapshotGate)
+                {
+                    // Freeze the physical endpoint while ETW is still running;
+                    // bytes transferred during shutdown are outside this interval.
+                    finalNetworkSample = SampleNetwork();
+                }
+            }
+            catch (Exception ex)
+            {
+                RecordError($"Could not sample the final network interval: {ex.Message}");
+            }
+        }
         cancellation?.Cancel();
         try
         {
@@ -131,12 +193,12 @@ public sealed class EtwTrafficMonitor : IDisposable
         {
         }
 
-        try
+        var allStopped = WaitForTasks(tasks, stopTimestamp);
+        if (!snapshotsStopped || !allStopped)
         {
-            Task.WaitAll(tasks, TimeSpan.FromSeconds(5));
-        }
-        catch (AggregateException)
-        {
+            _captureContinuity.CaptureStopped(expected: false);
+            RecordError("Timed out stopping ETW capture; the final traffic interval could not be saved completely.");
+            return;
         }
 
         lock (_lifecycleGate)
@@ -144,10 +206,42 @@ public sealed class EtwTrafficMonitor : IDisposable
             if (ReferenceEquals(_cancellation, cancellation) && tasks.All(task => task.IsCompleted))
             {
                 _cancellation?.Dispose();
+                _snapshotCancellation?.Dispose();
                 _cancellation = null;
+                _snapshotCancellation = null;
                 _eventTask = null;
                 _snapshotTask = null;
             }
+        }
+
+        if (finalNetworkSample is not null)
+        {
+            try
+            {
+                SnapshotBuildResult result;
+                lock (_snapshotGate)
+                {
+                    result = BuildSnapshotCore(finalNetworkSample);
+                }
+                PublishSnapshot(result, isFinalSnapshot: true);
+            }
+            catch (Exception ex)
+            {
+                RecordError($"Could not publish the final traffic snapshot: {ex.Message}");
+            }
+        }
+    }
+
+    private static bool WaitForTasks(Task[] tasks, long stopTimestamp)
+    {
+        var remaining = TimeSpan.FromSeconds(5) - Stopwatch.GetElapsedTime(stopTimestamp);
+        try
+        {
+            return Task.WaitAll(tasks, remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero);
+        }
+        catch (AggregateException)
+        {
+            return tasks.All(task => task.IsCompleted);
         }
     }
 
@@ -164,7 +258,10 @@ public sealed class EtwTrafficMonitor : IDisposable
             }
 
             _networkSampler.Reset();
+            _captureContinuity.ResetSampleBaseline();
+            var captureBoundary = _captureContinuity.BeginSample();
             var network = _networkSampler.Sample();
+            _captureContinuity.CompleteSample(captureBoundary, network);
             _lastAdapterEpoch = network.AdapterEpoch;
             UpdateSelectedAdapterAddresses();
             _lastSnapshotTimestamp = Stopwatch.GetTimestamp();
@@ -201,6 +298,7 @@ public sealed class EtwTrafficMonitor : IDisposable
     private void RunEtwSession(CancellationToken token)
     {
         Volatile.Write(ref _captureActive, 0);
+        var expectedStop = false;
         try
         {
             token.ThrowIfCancellationRequested();
@@ -247,8 +345,10 @@ public sealed class EtwTrafficMonitor : IDisposable
                 AddTraffic(data.ProcessID, IpVersion.Ipv6, TransportProtocol.Udp, TrafficDirection.Receive, data.saddr, data.daddr, data.sport, data.dport, Math.Max(0, data.size), data.TimeStamp);
 
             ClearError();
+            _captureContinuity.CaptureStarted();
             Volatile.Write(ref _captureActive, 1);
             session.Source.Process();
+            expectedStop = token.IsCancellationRequested;
             if (!token.IsCancellationRequested)
             {
                 RecordError("The ETW capture session stopped unexpectedly.");
@@ -256,6 +356,7 @@ public sealed class EtwTrafficMonitor : IDisposable
         }
         catch (Exception ex)
         {
+            expectedStop = token.IsCancellationRequested;
             if (!token.IsCancellationRequested)
             {
                 RecordError(ex.Message);
@@ -263,6 +364,7 @@ public sealed class EtwTrafficMonitor : IDisposable
         }
         finally
         {
+            _captureContinuity.CaptureStopped(expectedStop);
             Volatile.Write(ref _captureActive, 0);
             _session = null;
         }
@@ -276,15 +378,7 @@ public sealed class EtwTrafficMonitor : IDisposable
             {
                 await Task.Delay(TimeSpan.FromSeconds(Math.Clamp(SnapshotIntervalSeconds, 1, 10)), token).ConfigureAwait(false);
                 var result = BuildSnapshot();
-                var lostEvents = GetLostEventCount();
-                SnapshotReady?.Invoke(this, new MonitorSnapshotEventArgs(
-                    result.Snapshots,
-                    LastErrorCount,
-                    LastErrorText,
-                    lostEvents,
-                    result.Network,
-                    result.Generation,
-                    Volatile.Read(ref _captureActive) != 0));
+                PublishSnapshot(result);
             }
             catch (TaskCanceledException)
             {
@@ -297,6 +391,22 @@ public sealed class EtwTrafficMonitor : IDisposable
         }
     }
 
+    private void PublishSnapshot(SnapshotBuildResult result, bool isFinalSnapshot = false)
+    {
+        // The consumer may reset the monitor; never invoke it under a monitor lock.
+        SnapshotReady?.Invoke(this, new MonitorSnapshotEventArgs(
+            result.Snapshots,
+            LastErrorCount,
+            LastErrorText,
+            GetLostEventCount(),
+            result.Network,
+            result.Generation,
+            Volatile.Read(ref _captureActive) != 0,
+            result.IsCaptureIntervalComplete,
+            result.CapturedAt,
+            isFinalSnapshot));
+    }
+
     private SnapshotBuildResult BuildSnapshot()
     {
         lock (_snapshotGate)
@@ -305,9 +415,22 @@ public sealed class EtwTrafficMonitor : IDisposable
         }
     }
 
-    private SnapshotBuildResult BuildSnapshotCore()
+    private NetworkSample SampleNetwork()
     {
+        var captureBoundary = _captureContinuity.BeginSample();
         var network = _networkSampler.Sample();
+        var capturedAt = DateTime.Now;
+        var complete = _captureContinuity.CompleteSample(captureBoundary, network);
+        return new NetworkSample(network, captureBoundary, complete, capturedAt);
+    }
+
+    private SnapshotBuildResult BuildSnapshotCore(NetworkSample? finalNetworkSample = null)
+    {
+        var sample = finalNetworkSample ?? SampleNetwork();
+        var network = sample.Network;
+        var capturedAt = sample.CapturedAt;
+        var isCaptureIntervalComplete = sample.IsCaptureIntervalComplete
+            && (finalNetworkSample is null || _captureContinuity.IsExpectedFinalBoundary(sample.CaptureBoundary));
         var adapterChanged = network.IsAvailable
             && _lastAdapterEpoch != 0
             && network.AdapterEpoch != _lastAdapterEpoch;
@@ -387,7 +510,7 @@ public sealed class EtwTrafficMonitor : IDisposable
                 : StringComparer.CurrentCultureIgnoreCase.Compare(left.ProcessName, right.ProcessName);
         });
 
-        return new SnapshotBuildResult(snapshots, network, generation);
+        return new SnapshotBuildResult(snapshots, network, generation, isCaptureIntervalComplete, capturedAt);
     }
 
     private static ulong TotalRate(TrafficSnapshot snapshot)
@@ -411,6 +534,14 @@ public sealed class EtwTrafficMonitor : IDisposable
         {
             return;
         }
+
+        (sourceAddress, destinationAddress, sourcePort, destinationPort) = NormalizeEventEndpoints(
+            protocol == TransportProtocol.Tcp,
+            direction == TrafficDirection.Receive,
+            sourceAddress,
+            destinationAddress,
+            sourcePort,
+            destinationPort);
 
         var nowTimestamp = Stopwatch.GetTimestamp();
 
@@ -748,8 +879,7 @@ public sealed class EtwTrafficMonitor : IDisposable
                 direction == TrafficDirection.Send,
                 normalizedSource,
                 normalizedDestination,
-                _selectedAdapterAddresses,
-                _localAddresses))
+                _selectedAdapterAddresses))
         {
             return true;
         }
@@ -771,30 +901,32 @@ public sealed class EtwTrafficMonitor : IDisposable
         bool isSend,
         IPAddress sourceAddress,
         IPAddress destinationAddress,
-        IReadOnlySet<IPAddress> selectedAddresses,
-        IReadOnlySet<IPAddress> localAddresses)
+        IReadOnlySet<IPAddress> selectedAddresses)
     {
-        // Without a selected interface address, adapter attribution is unknown.
-        if (selectedAddresses.Count == 0)
+        // Endpoints have already been converted to packet direction at ingestion.
+        // An unknown local endpoint is not evidence that traffic used this adapter.
+        var localAddress = isSend ? sourceAddress : destinationAddress;
+        return selectedAddresses.Contains(NormalizeAddress(localAddress));
+    }
+
+    internal static (IPAddress SourceAddress, IPAddress DestinationAddress, int SourcePort, int DestinationPort) NormalizeEventEndpoints(
+        bool isTcp,
+        bool isReceive,
+        IPAddress sourceAddress,
+        IPAddress destinationAddress,
+        int sourcePort,
+        int destinationPort)
+    {
+        // Kernel TCP events expose local/remote endpoints for both directions;
+        // UDP receive events already expose the incoming packet's source/destination.
+        // Normalize TCP receives once here so filtering and flow keys agree.
+        if (isTcp && isReceive)
         {
-            return false;
+            (sourceAddress, destinationAddress) = (destinationAddress, sourceAddress);
+            (sourcePort, destinationPort) = (destinationPort, sourcePort);
         }
 
-        if (isSend)
-        {
-            return selectedAddresses.Contains(NormalizeAddress(sourceAddress));
-        }
-
-        var destination = NormalizeAddress(destinationAddress);
-        if (selectedAddresses.Contains(destination))
-        {
-            return true;
-        }
-
-        // WFP/TUN receive events can expose a rewritten destination that is not
-        // assigned to any adapter. Only reject a receive that Windows clearly
-        // associates with a different local interface.
-        return !localAddresses.Contains(destination);
+        return (NormalizeAddress(sourceAddress), NormalizeAddress(destinationAddress), sourcePort, destinationPort);
     }
 
     internal static IPAddress NormalizeAddress(IPAddress address)
@@ -970,7 +1102,15 @@ public sealed class EtwTrafficMonitor : IDisposable
     private sealed record SnapshotBuildResult(
         IReadOnlyList<TrafficSnapshot> Snapshots,
         NetworkTrafficSnapshot Network,
-        long Generation);
+        long Generation,
+        bool IsCaptureIntervalComplete,
+        DateTime CapturedAt);
+
+    private sealed record NetworkSample(
+        NetworkTrafficSnapshot Network,
+        CaptureContinuityTracker.CaptureBoundary CaptureBoundary,
+        bool IsCaptureIntervalComplete,
+        DateTime CapturedAt);
 
     private enum TrafficDirection
     {

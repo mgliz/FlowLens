@@ -94,7 +94,7 @@ public sealed class TrafficRow : INotifyPropertyChanged
 
     public static string FormatBytes(ulong bytes)
     {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        string[] units = ["B", "KiB", "MiB", "GiB", "TiB"];
         double value = bytes;
         var unit = 0;
 

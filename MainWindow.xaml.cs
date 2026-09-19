@@ -21,7 +21,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<TrafficRow> _rows = [];
     private readonly Dictionary<string, TrafficRow> _rowMap = [];
     private readonly Dictionary<string, TrafficSnapshot> _liveSnapshots = [];
-    private readonly TrafficPersistenceTracker _persistenceTracker = new();
+    private readonly TrafficHistoryAccumulator _historyAccumulator;
     private readonly AppSettings _settings;
     private readonly TrafficHistoryStore _historyStore;
     private readonly NetworkTrafficHistoryStore _networkHistoryStore;
@@ -45,15 +45,18 @@ public partial class MainWindow : Window
     private ListSortDirection _sortDirection = ListSortDirection.Descending;
     private MonitorSnapshotEventArgs? _pendingUiSnapshot;
     private bool _snapshotDispatchScheduled;
+    private volatile bool _persistenceEnabled;
 
     public MainWindow()
     {
         _settings = AppSettings.Load();
+        _persistenceEnabled = _settings.PersistStats;
         InitializeComponent();
         ApplyDisplaySettings();
         ThemeManager.Apply(this, _settings);
         _historyStore = TrafficHistoryStore.Load();
         _networkHistoryStore = NetworkTrafficHistoryStore.Load();
+        _historyAccumulator = new TrafficHistoryAccumulator(_historyStore, _networkHistoryStore);
         _historySaver = new HistorySaveCoordinator(_historyStore, _networkHistoryStore);
         _monitor.SnapshotIntervalSeconds = _settings.RefreshIntervalSeconds;
         _monitor.ExcludeLocalTraffic = _settings.ExcludeLocalTraffic;
@@ -147,11 +150,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Stop publishes the last collected interval. Never wait for the monitor
+        // while holding _snapshotDispatchGate: its callbacks acquire that lock.
+        _isExiting = true;
+        _monitor.Stop();
         SaveHistoryIfNeeded(force: true);
     }
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _monitor.SnapshotReady -= Monitor_SnapshotReady;
         _monitor.Dispose();
         _historySaver.Dispose();
         SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
@@ -226,6 +234,14 @@ public partial class MainWindow : Window
         var schedule = false;
         lock (_snapshotDispatchGate)
         {
+            if (e.Generation != _monitor.Generation)
+            {
+                return;
+            }
+
+            // Accounting and reset share this boundary. Only rendering may skip snapshots.
+            _historyAccumulator.Observe(e, _persistenceEnabled);
+            SaveHistoryIfNeeded(force: false);
             _pendingUiSnapshot = e;
             if (!_snapshotDispatchScheduled)
             {
@@ -317,7 +333,6 @@ public partial class MainWindow : Window
             _rows.Clear();
             _rowMap.Clear();
             _liveSnapshots.Clear();
-            _persistenceTracker.Clear();
         }
 
         _lastAppliedGeneration = e.Generation;
@@ -342,32 +357,13 @@ public partial class MainWindow : Window
             };
         }
 
-        var persistSnapshot = ShouldPersistSnapshot(_settings.PersistStats, e.CaptureActive, e.Network);
-        if (persistSnapshot)
-        {
-            _networkHistoryStore.AddDelta(e.Network, now);
-        }
-
         foreach (var snapshot in e.Snapshots)
         {
             var key = RawKeyFor(snapshot);
-
-            var delta = _persistenceTracker.Observe(key, snapshot, persistSnapshot);
-            if (delta is not null)
-            {
-                _historyStore.AddDelta(
-                    snapshot.ProcessName,
-                    snapshot.Path,
-                    delta,
-                    snapshot.LastSeen,
-                    e.Network.InterfaceId);
-            }
-
             _liveSnapshots[key] = snapshot;
         }
 
         PruneLiveSnapshots(now);
-        SaveHistoryIfNeeded(force: false);
 
         if (IsUiRefreshSuppressed())
         {
@@ -386,7 +382,6 @@ public partial class MainWindow : Window
                      .ToList())
         {
             _liveSnapshots.Remove(staleKey);
-            _persistenceTracker.Remove(staleKey);
         }
     }
 
@@ -591,14 +586,18 @@ public partial class MainWindow : Window
 
     private void ResetAllStats()
     {
-        _historySaver.Flush();
-        _monitor.Reset();
+        lock (_snapshotDispatchGate)
+        {
+            _historySaver.Flush();
+            _monitor.Reset();
+            _historyAccumulator.Reset(_monitor.Generation);
+            _historyStore.Clear();
+            _networkHistoryStore.Clear();
+            _pendingUiSnapshot = null;
+        }
         _rows.Clear();
         _rowMap.Clear();
         _liveSnapshots.Clear();
-        _persistenceTracker.Clear();
-        _historyStore.Clear();
-        _networkHistoryStore.Clear();
         TrafficStatsStore.Clear();
         _latestNetworkSnapshot = NetworkTrafficSnapshot.Unavailable;
         _lastLostEventCount = 0;
@@ -634,6 +633,12 @@ public partial class MainWindow : Window
         var window = new SettingsWindow(_settings, ResetAllStats) { Owner = this };
         if (window.ShowDialog() == true)
         {
+            var wasPersisting = _persistenceEnabled;
+            _persistenceEnabled = _settings.PersistStats;
+            if (wasPersisting && !_persistenceEnabled)
+            {
+                SaveHistoryIfNeeded(force: true);
+            }
             _monitor.SnapshotIntervalSeconds = _settings.RefreshIntervalSeconds;
             _monitor.ExcludeLocalTraffic = _settings.ExcludeLocalTraffic;
             _monitor.NetworkInterfaceId = _settings.NetworkInterfaceId;
@@ -700,6 +705,8 @@ public partial class MainWindow : Window
             {
                 new TimeRangeItem(TrafficTimeRange.Session, L("RangeSession")),
                 new TimeRangeItem(TrafficTimeRange.Today, L("RangeToday")),
+                new TimeRangeItem(TrafficTimeRange.ThisMonth, L("RangeThisMonth")),
+                new TimeRangeItem(TrafficTimeRange.LastMonth, L("RangeLastMonth")),
                 new TimeRangeItem(TrafficTimeRange.Last7Days, L("Range7Days")),
                 new TimeRangeItem(TrafficTimeRange.Last30Days, L("Range30Days")),
                 new TimeRangeItem(TrafficTimeRange.All, L("RangeAll"))
@@ -717,28 +724,24 @@ public partial class MainWindow : Window
 
     private void SaveHistoryIfNeeded(bool force)
     {
-        if (!_settings.PersistStats)
+        lock (_snapshotDispatchGate)
         {
-            return;
-        }
+            if (!force && (!_persistenceEnabled || Stopwatch.GetTimestamp() < _nextStatsSaveTimestamp))
+            {
+                return;
+            }
 
-        var nowTimestamp = Stopwatch.GetTimestamp();
-        if (!force && nowTimestamp < _nextStatsSaveTimestamp)
-        {
-            return;
-        }
+            if (force)
+            {
+                _historySaver.Flush();
+            }
+            else
+            {
+                _historySaver.RequestSave();
+            }
 
-        if (force)
-        {
-            _historySaver.Flush();
+            _nextStatsSaveTimestamp = Stopwatch.GetTimestamp() + (long)(TimeSpan.FromMinutes(1).TotalSeconds * Stopwatch.Frequency);
         }
-        else
-        {
-            _historySaver.RequestSave();
-        }
-
-        _lastPersistenceErrorText = _historySaver.LastError;
-        _nextStatsSaveTimestamp = Stopwatch.GetTimestamp() + (long)(TimeSpan.FromMinutes(1).TotalSeconds * Stopwatch.Frequency);
     }
 
     private WinForms.NotifyIcon CreateTrayIcon()

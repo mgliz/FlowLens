@@ -10,18 +10,53 @@ public sealed class TrafficHistoryStore
     public const string UnattributedPath = "flowlens://unattributed";
     private readonly object _gate = new();
     private readonly Dictionary<string, ProcessTrafficHistory> _records = [];
+    private readonly string _historyPath;
+    private readonly IReadOnlyList<string> _historyPathsToClear;
+    private string _loadError = string.Empty;
 
-    public static string HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v6.json");
-    public static string PreviousHistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v5.json");
+    public static string HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v8.json");
+    public static string PreviousHistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v7.json");
+    public static string PreviousV6HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v6.json");
+    public static string PreviousV5HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v5.json");
     public static string PreviousV4HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v4.json");
     public static string PreviousV3HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v3.json");
     public static string PreviousV2HistoryPath => Path.Combine(AppSettings.AppDataDir, "history-v2.json");
     public static string LegacyHistoryPath => Path.Combine(AppSettings.AppDataDir, "history.json");
     public static bool HasLegacyHistory => File.Exists(PreviousHistoryPath)
+        || File.Exists(PreviousV6HistoryPath)
+        || File.Exists(PreviousV5HistoryPath)
         || File.Exists(PreviousV4HistoryPath)
         || File.Exists(PreviousV3HistoryPath)
         || File.Exists(PreviousV2HistoryPath)
         || File.Exists(LegacyHistoryPath);
+
+    public TrafficHistoryStore()
+        : this(HistoryPath, ProductionHistoryPaths())
+    {
+    }
+
+    internal TrafficHistoryStore(string historyPath)
+        : this(historyPath, [historyPath])
+    {
+    }
+
+    private TrafficHistoryStore(string historyPath, IReadOnlyList<string> historyPathsToClear)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(historyPath);
+        _historyPath = historyPath;
+        _historyPathsToClear = historyPathsToClear;
+    }
+
+    public string LoadError
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _loadError;
+            }
+        }
+    }
 
     public IEnumerable<ProcessTrafficHistory> Records
     {
@@ -36,17 +71,29 @@ public sealed class TrafficHistoryStore
 
     public static TrafficHistoryStore Load()
     {
-        var store = new TrafficHistoryStore();
+        return Load(HistoryPath, ProductionHistoryPaths());
+    }
+
+    internal static TrafficHistoryStore Load(string historyPath)
+    {
+        return Load(historyPath, [historyPath]);
+    }
+
+    private static TrafficHistoryStore Load(string historyPath, IReadOnlyList<string> historyPathsToClear)
+    {
+        var store = new TrafficHistoryStore(historyPath, historyPathsToClear);
         try
         {
-            if (!File.Exists(HistoryPath))
-            {
-                return store;
-            }
-
-            var records = JsonSerializer.Deserialize<List<ProcessTrafficHistory>>(File.ReadAllText(HistoryPath)) ?? [];
+            var records = JsonSerializer.Deserialize<List<ProcessTrafficHistory>>(File.ReadAllText(historyPath))
+                ?? throw new JsonException("The process traffic history document is null.");
+            var loadedRecords = new Dictionary<string, ProcessTrafficHistory>();
             foreach (var record in records)
             {
+                if (record is null)
+                {
+                    throw new JsonException("The process traffic history contains a null record.");
+                }
+
                 if (!IsPersistable(record.ProcessName, record.Path))
                 {
                     continue;
@@ -62,18 +109,33 @@ public sealed class TrafficHistoryStore
                 }
 
                 record.StableKey = TrafficStatsStore.KeyFor(record.ProcessName, record.Path);
-                if (store._records.TryGetValue(record.StableKey, out var existing))
+                if (loadedRecords.TryGetValue(record.StableKey, out var existing))
                 {
                     MergeRecord(existing, record);
                 }
                 else
                 {
-                    store._records[record.StableKey] = record;
+                    loadedRecords[record.StableKey] = record;
                 }
             }
+
+            foreach (var pair in loadedRecords)
+            {
+                store._records[pair.Key] = pair.Value;
+            }
         }
-        catch
+        catch (FileNotFoundException)
         {
+            return store;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return store;
+        }
+        catch (Exception exception)
+        {
+            store._records.Clear();
+            store._loadError = exception.Message;
         }
 
         return store;
@@ -131,6 +193,12 @@ public sealed class TrafficHistoryStore
         List<ProcessTrafficHistory> records;
         lock (_gate)
         {
+            if (!string.IsNullOrEmpty(_loadError))
+            {
+                throw new InvalidOperationException(
+                    $"Process traffic history was not saved because '{Path.GetFileName(_historyPath)}' could not be read. Clear history explicitly before saving. Load error: {_loadError}");
+            }
+
             records = _records.Values
                 .Where(record => record.Buckets.Count > 0)
                 .OrderBy(record => record.ProcessName, StringComparer.CurrentCultureIgnoreCase)
@@ -138,7 +206,7 @@ public sealed class TrafficHistoryStore
                 .ToList();
         }
 
-        AtomicFile.WriteAllText(HistoryPath, JsonSerializer.Serialize(records));
+        AtomicFile.WriteAllText(_historyPath, JsonSerializer.Serialize(records));
     }
 
     public void Clear()
@@ -146,43 +214,37 @@ public sealed class TrafficHistoryStore
         lock (_gate)
         {
             _records.Clear();
+            _loadError = string.Empty;
         }
 
         try
         {
-            if (File.Exists(HistoryPath))
+            foreach (var path in _historyPathsToClear)
             {
-                File.Delete(HistoryPath);
-            }
-
-            if (File.Exists(PreviousHistoryPath))
-            {
-                File.Delete(PreviousHistoryPath);
-            }
-
-            if (File.Exists(PreviousV4HistoryPath))
-            {
-                File.Delete(PreviousV4HistoryPath);
-            }
-
-            if (File.Exists(PreviousV3HistoryPath))
-            {
-                File.Delete(PreviousV3HistoryPath);
-            }
-
-            if (File.Exists(PreviousV2HistoryPath))
-            {
-                File.Delete(PreviousV2HistoryPath);
-            }
-
-            if (File.Exists(LegacyHistoryPath))
-            {
-                File.Delete(LegacyHistoryPath);
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
             }
         }
         catch
         {
         }
+    }
+
+    private static IReadOnlyList<string> ProductionHistoryPaths()
+    {
+        return
+        [
+            HistoryPath,
+            PreviousHistoryPath,
+            PreviousV6HistoryPath,
+            PreviousV5HistoryPath,
+            PreviousV4HistoryPath,
+            PreviousV3HistoryPath,
+            PreviousV2HistoryPath,
+            LegacyHistoryPath
+        ];
     }
 
     public void AddDelta(
@@ -243,12 +305,21 @@ public sealed class TrafficHistoryStore
         IEnumerable<TrafficSnapshot> current,
         string interfaceId)
     {
+        return BuildSnapshots(range, current, interfaceId, DateTime.Today);
+    }
+
+    internal List<TrafficSnapshot> BuildSnapshots(
+        TrafficTimeRange range,
+        IEnumerable<TrafficSnapshot> current,
+        string interfaceId,
+        DateTime today)
+    {
         if (range == TrafficTimeRange.Session)
         {
             return current.ToList();
         }
 
-        var start = GetStartDate(range);
+        var (start, endExclusive) = GetDateRange(range, today);
         var output = new Dictionary<string, TrafficSnapshot>();
         List<ProcessTrafficHistory> records;
         lock (_gate)
@@ -266,7 +337,8 @@ public sealed class TrafficHistoryStore
                     continue;
                 }
 
-                if (start is null || bucketDate.Date >= start.Value.Date)
+                if ((start is null || bucketDate.Date >= start.Value.Date)
+                    && (endExclusive is null || bucketDate.Date < endExclusive.Value.Date))
                 {
                     counters.Add(pair.Value);
                 }
@@ -356,16 +428,19 @@ public sealed class TrafficHistoryStore
         return total;
     }
 
-    internal static DateTime? GetStartDate(TrafficTimeRange range)
+    internal static (DateTime? Start, DateTime? EndExclusive) GetDateRange(TrafficTimeRange range, DateTime today)
     {
-        var today = DateTime.Today;
+        today = today.Date;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
         return range switch
         {
-            TrafficTimeRange.Today => today,
-            TrafficTimeRange.Last7Days => today.AddDays(-6),
-            TrafficTimeRange.Last30Days => today.AddDays(-29),
-            TrafficTimeRange.All => null,
-            _ => today
+            TrafficTimeRange.Today => (today, null),
+            TrafficTimeRange.Last7Days => (today.AddDays(-6), null),
+            TrafficTimeRange.Last30Days => (today.AddDays(-29), null),
+            TrafficTimeRange.ThisMonth => (monthStart, today.AddDays(1)),
+            TrafficTimeRange.LastMonth => (monthStart.AddMonths(-1), monthStart),
+            TrafficTimeRange.All => (null, null),
+            _ => (today, null)
         };
     }
 

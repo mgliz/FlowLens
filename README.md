@@ -15,7 +15,7 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 - Per-process TCP and UDP traffic statistics.
 - IPv4 and IPv6 receive/send split.
 - Real-time rate view plus persisted local statistics.
-- Optional time ranges: current session, today, last 7 days, last 30 days, and all.
+- Optional time ranges: current session, today, this month, last month, last 7 days, last 30 days, and all.
 - Configurable columns, minimum visible traffic threshold, and refresh interval.
 - Tray mode, close-to-tray, start with Windows, and start minimized.
 - Dark, light, and follow-system themes.
@@ -30,10 +30,10 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 
 ## Download
 
-Use the `v1.0.4` release package:
+The local `1.0.6` maintenance build is packaged as:
 
 ```text
-FlowLens-1.0.4-win-x64.zip
+FlowLens-1.0.6-win-x64.zip
 ```
 
 Unzip it and run `FlowLens.exe` as administrator.
@@ -57,15 +57,18 @@ FlowLens stores settings and local traffic history under:
 ## Accounting model
 
 - The main total uses byte counters from the selected Windows network interface.
-- Process rows use kernel ETW events. Sends must originate on the selected adapter; receives assigned to another known local adapter are excluded, while WFP/TUN-rewritten receive endpoints are retained.
-- A VPN, TUN adapter, or transparent proxy can expose both an application's original connection and the proxy's outer connection. FlowLens keeps only the selected-adapter leg, so proxied traffic is normally attributed to the proxy process.
+- Process rows use kernel ETW events. TCP receive endpoints are normalized separately from UDP. Sends must originate on the selected adapter and receives must target it; events with an unknown local endpoint are excluded from adapter attribution.
+- A VPN, TUN adapter, or transparent proxy can expose both an application's original connection and the proxy's outer connection. Address filtering narrows attribution to the selected adapter, but rewritten receive endpoints cannot always be proven to belong to it. Process IPv4 totals are not a campus-billing meter.
+- IPv4 and IPv6 totals each include received and sent bytes. Byte quantities use binary units (KiB, MiB, GiB); 1 GiB is 1,073,741,824 bytes. Compare the same dates, directions, units, and network when checking another meter.
 - If Windows reports lost ETW events, FlowLens displays a capture warning because affected process totals may be incomplete.
 
 ## Notes
 
 FlowLens counts traffic while it is running. It does not backfill traffic that happened before the app started.
 
-Adapter-aligned process accounting is stored in `history-v6.json`, with matching adapter totals in `network-history-v5.json`. Buckets are isolated by the actual Windows interface ID; earlier history files remain local but are not mixed into corrected totals.
+Adapter-aligned process accounting is stored in `history-v8.json`, with matching adapter totals in `network-history-v7.json`. Buckets are isolated by the actual Windows interface ID; earlier history files remain local but are not mixed into corrected totals. Version 1.0.6 starts a new history for the corrected receive-endpoint filter; it does not migrate or delete existing history files.
+
+Every source snapshot updates history before UI rendering can coalesce refreshes. Incomplete intervals spanning capture failures or adapter recovery establish a new baseline and are excluded from both histories. A normal exit records the final complete interval before saving. If a history file cannot be read, the app reports a persistence error and refuses to overwrite that file.
 
 Linux is not supported by this WPF/ETW version. A Linux build would require a separate UI and capture backend.
 

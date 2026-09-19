@@ -70,6 +70,8 @@ public static class Localizer
             ["Range7Days"] = "Last 7 days",
             ["Range30Days"] = "Last 30 days",
             ["RangeAll"] = "All",
+            ["RangeThisMonth"] = "This month",
+            ["RangeLastMonth"] = "Last month",
             ["SettingsTitle"] = "Settings",
             ["SettingsSubtitle"] = "Startup, tray behavior, refresh, language, and local statistics.",
             ["GeneralSettings"] = "General",
@@ -177,6 +179,8 @@ public static class Localizer
             ["Range7Days"] = "最近 7 天",
             ["Range30Days"] = "最近 30 天",
             ["RangeAll"] = "全部",
+            ["RangeThisMonth"] = "本月",
+            ["RangeLastMonth"] = "上月",
             ["SettingsTitle"] = "设置",
             ["SettingsSubtitle"] = "启动、托盘、刷新、语言和本地统计。",
             ["GeneralSettings"] = "常规",
@@ -248,11 +252,13 @@ public static class Localizer
 
 public enum TrafficTimeRange
 {
-    Session,
-    Today,
-    Last7Days,
-    Last30Days,
-    All
+    Session = 0,
+    Today = 1,
+    Last7Days = 2,
+    Last30Days = 3,
+    All = 4,
+    ThisMonth = 5,
+    LastMonth = 6
 }
 
 public enum AppTheme
