@@ -30,6 +30,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -114,6 +115,44 @@
                         Style="{StaticResource ToolbarButton}"
                         Content="&#xE946;"
                         Click="AboutButton_Click"/>
+            </StackPanel>
+            <StackPanel x:Name="CustomRangePanel" Grid.Row="2" Grid.ColumnSpan="2"
+                        Margin="0,12,0,0" Visibility="Collapsed">
+                <StackPanel.Resources>
+                    <!-- Keep calendar template buttons compact despite the app's implicit button style. -->
+                    <Style TargetType="DatePicker">
+                        <Style.Resources>
+                            <Style TargetType="Button">
+                                <Setter Property="MinWidth" Value="0"/>
+                                <Setter Property="MinHeight" Value="0"/>
+                                <Setter Property="Padding" Value="0"/>
+                            </Style>
+                        </Style.Resources>
+                    </Style>
+                </StackPanel.Resources>
+                <WrapPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="CustomStartLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <DatePicker x:Name="CustomStartPicker" Width="145" Margin="0,0,14,0"
+                                Foreground="Black" Background="White" SelectedDateFormat="Short"
+                                DateValidationError="CustomDate_ValidationError"
+                                TextBoxBase.TextChanged="CustomDate_TextChanged" CalendarOpened="CustomCalendar_Opened"/>
+                    <ComboBox x:Name="CustomStartHourBox" Width="78" Margin="0,0,14,0"/>
+                    <TextBlock x:Name="CustomEndLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <DatePicker x:Name="CustomEndPicker" Width="145" Margin="0,0,14,0"
+                                Foreground="Black" Background="White" SelectedDateFormat="Short"
+                                DateValidationError="CustomDate_ValidationError"
+                                TextBoxBase.TextChanged="CustomDate_TextChanged" CalendarOpened="CustomCalendar_Opened"/>
+                    <ComboBox x:Name="CustomEndHourBox" Width="78" Margin="0,0,14,0"/>
+                    <Button x:Name="CustomRangeApplyButton" MinWidth="75" Padding="12,5"
+                            Click="CustomRangeApply_Click"/>
+                    <TextBlock x:Name="CustomRangeHint" VerticalAlignment="Center" Margin="12,0,0,0"
+                               Foreground="{DynamicResource MutedBrush}"/>
+                </WrapPanel>
+                <TextBlock x:Name="CustomRangeAppliedText" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                <TextBlock x:Name="CustomHistoryHint" Margin="0,4,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedBrush}"/>
+                <TextBlock x:Name="CustomRangeError" Margin="0,4,0,0" TextWrapping="Wrap"
+                           Visibility="Collapsed" Foreground="{DynamicResource WarningBrush}"/>
             </StackPanel>
         </Grid>
 

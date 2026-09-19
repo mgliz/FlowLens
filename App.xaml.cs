@@ -11,7 +11,7 @@ public partial class App : System.Windows.Application
     private const string MutexName = @"Global\FlowLens.SingleInstance.v2";
     private const string ActivateEventName = @"Global\FlowLens.Activate.v2";
 
-    private Mutex? _singleInstanceMutex;
+    private SingleInstanceMutex? _singleInstanceMutex;
     private EventWaitHandle? _activateEvent;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -19,8 +19,8 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += App_DispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
-        _singleInstanceMutex = new Mutex(true, MutexName, out var createdNew);
-        if (!createdNew)
+        _singleInstanceMutex = SingleInstanceMutex.Acquire(MutexName);
+        if (!_singleInstanceMutex.OwnsMutex)
         {
             if (EventWaitHandle.TryOpenExisting(ActivateEventName, out var activateEvent))
             {
@@ -45,7 +45,6 @@ public partial class App : System.Windows.Application
     protected override void OnExit(ExitEventArgs e)
     {
         _activateEvent?.Dispose();
-        _singleInstanceMutex?.ReleaseMutex();
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);
     }

@@ -28,6 +28,14 @@ internal sealed class TrafficPersistenceTracker
         _baselines.Remove(instanceKey);
     }
 
+    public void RetainInstances(IReadOnlySet<string> instanceKeys)
+    {
+        foreach (var key in _baselines.Keys.Where(key => !instanceKeys.Contains(key)).ToList())
+        {
+            _baselines.Remove(key);
+        }
+    }
+
     public void Clear()
     {
         _baselines.Clear();

@@ -4,6 +4,14 @@ using System.Net;
 using System.Xml.Linq;
 
 var failures = new List<string>();
+SingleInstanceTests.Run(Check);
+AccountingRegressionTests.Run(Check);
+HistoryRecoveryTests.Run(Check);
+CaptureLifecycleTests.Run(Check);
+MonthlyRangeTests.Run(Check);
+CustomRangeTests.Run(Check);
+HourlyHistoryTests.Run(Check);
+EndpointAccountingTests.Run(Check);
 const string TestInterfaceId = "test-interface";
 
 foreach (var key in new[]
@@ -135,54 +143,47 @@ var remoteAddress = IPAddress.Parse("1.1.1.1");
 var rewrittenAddress = IPAddress.Parse("198.18.0.1");
 var otherAdapterAddress = IPAddress.Parse("172.29.176.1");
 var selectedAddresses = new HashSet<IPAddress> { adapterAddress };
-var localAddresses = new HashSet<IPAddress> { adapterAddress, otherAdapterAddress };
 Check(
     EtwTrafficMonitor.MatchesSelectedAdapterPath(
         isSend: true,
         adapterAddress,
         remoteAddress,
-        selectedAddresses,
-        localAddresses),
+        selectedAddresses),
     "A send whose source belongs to the selected adapter must be counted.");
 Check(
     EtwTrafficMonitor.MatchesSelectedAdapterPath(
         isSend: false,
         remoteAddress,
         adapterAddress,
-        selectedAddresses,
-        localAddresses),
+        selectedAddresses),
     "A receive whose destination belongs to the selected adapter must be counted.");
 Check(
     !EtwTrafficMonitor.MatchesSelectedAdapterPath(
         isSend: true,
         rewrittenAddress,
         remoteAddress,
-        selectedAddresses,
-        localAddresses),
+        selectedAddresses),
     "A proxy or TUN inner send must not be mixed with the selected adapter's outer send.");
 Check(
-    EtwTrafficMonitor.MatchesSelectedAdapterPath(
+    !EtwTrafficMonitor.MatchesSelectedAdapterPath(
         isSend: false,
         remoteAddress,
         rewrittenAddress,
-        selectedAddresses,
-        localAddresses),
-    "A WFP-rewritten receive destination must be retained when it is not assigned to another adapter.");
+        selectedAddresses),
+    "An unknown receive destination must not be attributed to the selected adapter.");
 Check(
     !EtwTrafficMonitor.MatchesSelectedAdapterPath(
         isSend: false,
         remoteAddress,
         otherAdapterAddress,
-        selectedAddresses,
-        localAddresses),
+        selectedAddresses),
     "A receive explicitly bound to another local adapter must be excluded.");
 Check(
     EtwTrafficMonitor.MatchesSelectedAdapterPath(
         isSend: true,
         IPAddress.Parse("::ffff:10.70.105.171"),
         remoteAddress,
-        selectedAddresses,
-        localAddresses),
+        selectedAddresses),
     "IPv4-mapped IPv6 endpoints must match the equivalent selected IPv4 address.");
 var linkLocal = IPAddress.Parse("fe80::1234");
 var scopedLinkLocal = new IPAddress(linkLocal.GetAddressBytes(), 12);
@@ -194,8 +195,7 @@ Check(
         isSend: true,
         adapterAddress,
         remoteAddress,
-        new HashSet<IPAddress>(),
-        localAddresses),
+        new HashSet<IPAddress>()),
     "Traffic matching must fail closed while adapter attribution is unavailable.");
 
 var previous = Snapshot(ipv4Received: 1000, instanceId: 10);

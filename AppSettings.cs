@@ -29,6 +29,14 @@ public sealed class AppSettings
     public ulong MinimumVisibleBytes { get; set; }
     public string Language { get; set; } = Localizer.NormalizeLanguage(null);
     public TrafficTimeRange TimeRange { get; set; } = TrafficTimeRange.Session;
+    public DateTime CustomRangeStart { get; set; } = DateTime.Today;
+    public DateTime CustomRangeEnd { get; set; } = DateTime.Today;
+    public int CustomStartHour { get; set; }
+    public int CustomEndHour { get; set; } = 23;
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DateTime CustomStartTime => CustomRangeStart.Date.AddHours(CustomStartHour);
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DateTime CustomEndTime => CustomRangeEnd.Date.AddHours(CustomEndHour);
     public AppTheme Theme { get; set; } = AppTheme.System;
     public bool ShowPidColumn { get; set; }
     public bool ShowRateColumns { get; set; } = true;
@@ -54,6 +62,17 @@ public sealed class AppSettings
                 {
                     settings.RefreshIntervalSeconds = Math.Clamp(settings.RefreshIntervalSeconds, 1, 10);
                     settings.Language = Localizer.NormalizeLanguage(settings.Language);
+                    if (!Enum.IsDefined(settings.TimeRange))
+                        settings.TimeRange = TrafficTimeRange.Session;
+                    settings.CustomStartHour = Math.Clamp(settings.CustomStartHour, 0, 23);
+                    settings.CustomEndHour = Math.Clamp(settings.CustomEndHour, 0, 23);
+                    if (settings.CustomStartTime > settings.CustomEndTime ||
+                        settings.CustomRangeEnd.Date > DateTime.Today)
+                    {
+                        settings.CustomRangeStart = settings.CustomRangeEnd = DateTime.Today;
+                        settings.CustomStartHour = 0;
+                        settings.CustomEndHour = 23;
+                    }
                     return settings;
                 }
             }

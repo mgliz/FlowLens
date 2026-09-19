@@ -70,6 +70,18 @@ public static class Localizer
             ["Range7Days"] = "Last 7 days",
             ["Range30Days"] = "Last 30 days",
             ["RangeAll"] = "All",
+            ["RangeThisMonth"] = "This month",
+            ["RangeLastMonth"] = "Last month",
+            ["RangeCustom"] = "Custom period",
+            ["RangeStartHour"] = "Start hour",
+            ["RangeEndHour"] = "Last included hour",
+            ["HourlyHistoryHint"] = "Old daily totals are included only for complete days. Hourly detail starts after upgrading.",
+            ["RangeStart"] = "Start date",
+            ["RangeEnd"] = "End date",
+            ["RangeApply"] = "Apply",
+            ["RangeHint"] = "Both selected hours included.",
+            ["RangeInvalid"] = "Enter valid dates: start must be on or before end, and end cannot be in the future.",
+            ["RangeApplied"] = "Showing: {0:yyyy-MM-dd HH:mm} – {1:yyyy-MM-dd HH:mm} (end excluded)",
             ["SettingsTitle"] = "Settings",
             ["SettingsSubtitle"] = "Startup, tray behavior, refresh, language, and local statistics.",
             ["GeneralSettings"] = "General",
@@ -177,6 +189,18 @@ public static class Localizer
             ["Range7Days"] = "最近 7 天",
             ["Range30Days"] = "最近 30 天",
             ["RangeAll"] = "全部",
+            ["RangeThisMonth"] = "本月",
+            ["RangeLastMonth"] = "上月",
+            ["RangeCustom"] = "自定义时段",
+            ["RangeStartHour"] = "开始小时",
+            ["RangeEndHour"] = "最后计入的小时",
+            ["HourlyHistoryHint"] = "旧日统计仅在完整包含当天时计入，无法还原旧数据的小时明细；小时记录从升级后开始。",
+            ["RangeStart"] = "开始日期",
+            ["RangeEnd"] = "结束日期",
+            ["RangeApply"] = "应用",
+            ["RangeHint"] = "包含首尾所选小时。",
+            ["RangeInvalid"] = "请输入有效日期：开始日期不能晚于结束日期，结束日期不能晚于今天。",
+            ["RangeApplied"] = "当前统计：{0:yyyy-MM-dd HH:mm} 至 {1:yyyy-MM-dd HH:mm}（不含截止时刻）",
             ["SettingsTitle"] = "设置",
             ["SettingsSubtitle"] = "启动、托盘、刷新、语言和本地统计。",
             ["GeneralSettings"] = "常规",
@@ -248,11 +272,14 @@ public static class Localizer
 
 public enum TrafficTimeRange
 {
-    Session,
-    Today,
-    Last7Days,
-    Last30Days,
-    All
+    Session = 0,
+    Today = 1,
+    Last7Days = 2,
+    Last30Days = 3,
+    All = 4,
+    ThisMonth = 5,
+    LastMonth = 6,
+    Custom = 7
 }
 
 public enum AppTheme

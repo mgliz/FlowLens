@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.0.5 - 2026-09-19
+
+- Add custom start/end dates and hours, shared by process and physical-adapter statistics.
+- Store new samples in hourly buckets; assign both process and adapter deltas to the snapshot's local hour.
+- Import the corrected daily histories once into new versioned files, retaining daily granularity without inventing hourly detail. Legacy daily totals are included only when the entire day is selected.
+- Fix corrected invalid date input requiring two Apply clicks.
+- Publish a self-contained Windows x64 package with .NET included.
+- Save the selected dates across restarts and show the applied period while editing.
+- Validate missing, reversed, and future dates; provide English and Chinese controls and guidance.
+- Add regression coverage for custom ranges, cross-month boundaries, single days, empty history, adapter isolation, and settings round trips.
+
+- Normalize TCP receive addresses and ports to packet direction before adapter filtering; UDP receive events keep their existing packet direction.
+- Require a known endpoint on the selected adapter instead of accepting arbitrary receive destinations, preventing cross-adapter TCP receive traffic from entering its totals.
+- Use the same connection key for TCP sends and receives.
+- Add calendar-month ranges for this month and last month without changing existing saved range values.
+- Label binary byte quantities as KiB, MiB, GiB, and TiB.
+- Preserve earlier histories and store hourly data in process v9 and adapter v8 histories. Only the corrected local daily v8/v7 histories are eligible for import; older accounting histories remain isolated.
+- Add endpoint, connection, and calendar-boundary regression coverage.
+
+- Persist every source snapshot before coalescing UI refreshes, preventing physical-history gaps while the window is busy.
+- Retain process persistence baselines until counters actually disappear from the source, preventing repeated replay of idle PID 0 traffic.
+- Release the single-instance mutex only when owned, fixing the secondary instance's shutdown crash.
+- Track capture continuity across failures, restarts, and unavailable adapters so incomplete intervals cannot enter aligned history.
+- Stop snapshot production and drain capture before publishing and saving the final interval on normal exit.
+- Preserve unreadable history files and surface the load failure instead of replacing them with empty history.
+- Add regression coverage for coalesced rendering, idle counters, persistence toggles, reset generations, capture lifecycle, mutex ownership, and history recovery.
+
 ## 1.0.4 - 2026-08-18
 
 - Rebuilt Windows startup registration with an unquoted executable action, a per-user delayed logon trigger, battery-safe settings, no 72-hour execution limit, and automatic repair after the executable moves or the task disappears.

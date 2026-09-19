@@ -21,7 +21,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<TrafficRow> _rows = [];
     private readonly Dictionary<string, TrafficRow> _rowMap = [];
     private readonly Dictionary<string, TrafficSnapshot> _liveSnapshots = [];
-    private readonly TrafficPersistenceTracker _persistenceTracker = new();
+    private readonly TrafficHistoryAccumulator _historyAccumulator;
     private readonly AppSettings _settings;
     private readonly TrafficHistoryStore _historyStore;
     private readonly NetworkTrafficHistoryStore _networkHistoryStore;
@@ -31,6 +31,8 @@ public partial class MainWindow : Window
     private readonly WinForms.NotifyIcon _trayIcon;
     private bool _isExiting;
     private bool _updatingTimeRange;
+    private readonly HashSet<DatePicker> _invalidCustomDates = [];
+    private readonly HashSet<DatePicker> _restoringCustomDates = [];
     private long _nextStatsSaveTimestamp;
     private NetworkTrafficSnapshot _latestNetworkSnapshot = NetworkTrafficSnapshot.Unavailable;
     private int _lastCaptureErrorCount;
@@ -45,15 +47,18 @@ public partial class MainWindow : Window
     private ListSortDirection _sortDirection = ListSortDirection.Descending;
     private MonitorSnapshotEventArgs? _pendingUiSnapshot;
     private bool _snapshotDispatchScheduled;
+    private volatile bool _persistenceEnabled;
 
     public MainWindow()
     {
         _settings = AppSettings.Load();
+        _persistenceEnabled = _settings.PersistStats;
         InitializeComponent();
         ApplyDisplaySettings();
         ThemeManager.Apply(this, _settings);
         _historyStore = TrafficHistoryStore.Load();
         _networkHistoryStore = NetworkTrafficHistoryStore.Load();
+        _historyAccumulator = new TrafficHistoryAccumulator(_historyStore, _networkHistoryStore);
         _historySaver = new HistorySaveCoordinator(_historyStore, _networkHistoryStore);
         _monitor.SnapshotIntervalSeconds = _settings.RefreshIntervalSeconds;
         _monitor.ExcludeLocalTraffic = _settings.ExcludeLocalTraffic;
@@ -147,11 +152,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Stop publishes the last collected interval. Never wait for the monitor
+        // while holding _snapshotDispatchGate: its callbacks acquire that lock.
+        _isExiting = true;
+        _monitor.Stop();
         SaveHistoryIfNeeded(force: true);
     }
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _monitor.SnapshotReady -= Monitor_SnapshotReady;
         _monitor.Dispose();
         _historySaver.Dispose();
         SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
@@ -226,6 +236,14 @@ public partial class MainWindow : Window
         var schedule = false;
         lock (_snapshotDispatchGate)
         {
+            if (e.Generation != _monitor.Generation)
+            {
+                return;
+            }
+
+            // Accounting and reset share this boundary. Only rendering may skip snapshots.
+            _historyAccumulator.Observe(e, _persistenceEnabled);
+            SaveHistoryIfNeeded(force: false);
             _pendingUiSnapshot = e;
             if (!_snapshotDispatchScheduled)
             {
@@ -317,7 +335,6 @@ public partial class MainWindow : Window
             _rows.Clear();
             _rowMap.Clear();
             _liveSnapshots.Clear();
-            _persistenceTracker.Clear();
         }
 
         _lastAppliedGeneration = e.Generation;
@@ -342,32 +359,13 @@ public partial class MainWindow : Window
             };
         }
 
-        var persistSnapshot = ShouldPersistSnapshot(_settings.PersistStats, e.CaptureActive, e.Network);
-        if (persistSnapshot)
-        {
-            _networkHistoryStore.AddDelta(e.Network, now);
-        }
-
         foreach (var snapshot in e.Snapshots)
         {
             var key = RawKeyFor(snapshot);
-
-            var delta = _persistenceTracker.Observe(key, snapshot, persistSnapshot);
-            if (delta is not null)
-            {
-                _historyStore.AddDelta(
-                    snapshot.ProcessName,
-                    snapshot.Path,
-                    delta,
-                    snapshot.LastSeen,
-                    e.Network.InterfaceId);
-            }
-
             _liveSnapshots[key] = snapshot;
         }
 
         PruneLiveSnapshots(now);
-        SaveHistoryIfNeeded(force: false);
 
         if (IsUiRefreshSuppressed())
         {
@@ -386,7 +384,6 @@ public partial class MainWindow : Window
                      .ToList())
         {
             _liveSnapshots.Remove(staleKey);
-            _persistenceTracker.Remove(staleKey);
         }
     }
 
@@ -402,7 +399,8 @@ public partial class MainWindow : Window
             : _historyStore.BuildSnapshots(
                 _settings.TimeRange,
                 _liveSnapshots.Values,
-                _latestNetworkSnapshot.InterfaceId);
+                _latestNetworkSnapshot.InterfaceId, DateTime.Today,
+                _settings.CustomStartTime, _settings.CustomEndTime);
         var liveKeys = new HashSet<string>();
 
         foreach (var snapshot in snapshots)
@@ -468,7 +466,8 @@ public partial class MainWindow : Window
 
         if (_latestNetworkSnapshot.IsAvailable)
         {
-            var physicalTotals = _networkHistoryStore.GetTotals(_settings.TimeRange, _latestNetworkSnapshot);
+            var physicalTotals = _networkHistoryStore.GetTotals(_settings.TimeRange, _latestNetworkSnapshot,
+                DateTime.Today, _settings.CustomStartTime, _settings.CustomEndTime);
             NetworkRateText.Text = TrafficRow.FormatRate(
                 AddSaturating(_latestNetworkSnapshot.ReceiveRate, _latestNetworkSnapshot.SendRate));
             NetworkReceiveRateText.Text = TrafficRow.FormatRate(_latestNetworkSnapshot.ReceiveRate);
@@ -584,21 +583,115 @@ public partial class MainWindow : Window
         }
 
         _settings.TimeRange = item.Range;
+        UpdateCustomRangeControls();
         _settings.Save();
+        RebuildDisplayedRows();
+        UpdateMetrics();
+    }
+
+    private void UpdateCustomRangeControls()
+    {
+        CustomRangePanel.Visibility = _settings.TimeRange == TrafficTimeRange.Custom
+            ? Visibility.Visible : Visibility.Collapsed;
+        var dateLanguage = System.Windows.Markup.XmlLanguage.GetLanguage(
+            System.Globalization.CultureInfo.CurrentCulture.IetfLanguageTag);
+        CustomStartPicker.Language = CustomEndPicker.Language = dateLanguage;
+        CustomStartPicker.DisplayDateEnd = CustomEndPicker.DisplayDateEnd = DateTime.Today;
+        CustomStartPicker.SelectedDate = _settings.CustomRangeStart;
+        CustomEndPicker.SelectedDate = _settings.CustomRangeEnd;
+        CustomStartHourBox.ItemsSource = CustomEndHourBox.ItemsSource =
+            Enumerable.Range(0, 24).Select(hour => $"{hour:00}:00").ToArray();
+        CustomStartHourBox.SelectedIndex = _settings.CustomStartHour;
+        CustomEndHourBox.SelectedIndex = _settings.CustomEndHour;
+        CustomRangeAppliedText.Text = string.Format(L("RangeApplied"),
+            _settings.CustomStartTime, _settings.CustomEndTime.AddHours(1));
+        CustomRangeError.Visibility = Visibility.Collapsed;
+        _invalidCustomDates.Clear();
+    }
+
+    private void CustomDate_ValidationError(object? sender, DatePickerDateValidationErrorEventArgs e)
+    {
+        e.ThrowException = false;
+        if (sender is DatePicker picker)
+        {
+            _invalidCustomDates.Add(picker);
+            _restoringCustomDates.Add(picker);
+            // WPF restores the old text synchronously after this event. That
+            // restoration is not a user correction; later valid edits are.
+            Dispatcher.BeginInvoke(new Action(() => _restoringCustomDates.Remove(picker)),
+                System.Windows.Threading.DispatcherPriority.Background);
+        }
+        CustomRangeError.Text = L("RangeInvalid");
+        CustomRangeError.Visibility = Visibility.Visible;
+    }
+
+    private void CustomDate_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is DatePicker picker && !_restoringCustomDates.Contains(picker) &&
+            e.OriginalSource is System.Windows.Controls.TextBox input &&
+            DateTime.TryParse(input.Text, out var date) && date.Date <= DateTime.Today)
+            _invalidCustomDates.Remove(picker);
+    }
+
+    private void CustomCalendar_Opened(object sender, RoutedEventArgs e)
+    {
+        CustomStartPicker.DisplayDateEnd = CustomEndPicker.DisplayDateEnd = DateTime.Today;
+    }
+
+    private bool TryReadCustomRange(out DateTime start, out DateTime end)
+    {
+        start = end = default;
+        // DatePicker may restore its old text after rejecting a typed date.
+        // Do not silently apply that restored value on the same click.
+        if (_invalidCustomDates.Count > 0)
+        {
+            CustomRangeError.Text = L("RangeInvalid");
+            CustomRangeError.Visibility = Visibility.Visible;
+            return false;
+        }
+
+        if (!DateTime.TryParse(CustomStartPicker.Text, out start) ||
+            !DateTime.TryParse(CustomEndPicker.Text, out end) ||
+            CustomStartHourBox.SelectedIndex < 0 || CustomEndHourBox.SelectedIndex < 0 ||
+            start.Date.AddHours(CustomStartHourBox.SelectedIndex) > end.Date.AddHours(CustomEndHourBox.SelectedIndex) ||
+            end.Date > DateTime.Today)
+        {
+            CustomRangeError.Text = L("RangeInvalid");
+            CustomRangeError.Visibility = Visibility.Visible;
+            return false;
+        }
+
+        return true;
+    }
+
+    private void CustomRangeApply_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryReadCustomRange(out var start, out var end)) return;
+
+        _settings.CustomRangeStart = start.Date;
+        _settings.CustomRangeEnd = end.Date;
+        _settings.CustomStartHour = CustomStartHourBox.SelectedIndex;
+        _settings.CustomEndHour = CustomEndHourBox.SelectedIndex;
+        _settings.Save();
+        UpdateCustomRangeControls();
         RebuildDisplayedRows();
         UpdateMetrics();
     }
 
     private void ResetAllStats()
     {
-        _historySaver.Flush();
-        _monitor.Reset();
+        lock (_snapshotDispatchGate)
+        {
+            _historySaver.Flush();
+            _monitor.Reset();
+            _historyAccumulator.Reset(_monitor.Generation);
+            _historyStore.Clear();
+            _networkHistoryStore.Clear();
+            _pendingUiSnapshot = null;
+        }
         _rows.Clear();
         _rowMap.Clear();
         _liveSnapshots.Clear();
-        _persistenceTracker.Clear();
-        _historyStore.Clear();
-        _networkHistoryStore.Clear();
         TrafficStatsStore.Clear();
         _latestNetworkSnapshot = NetworkTrafficSnapshot.Unavailable;
         _lastLostEventCount = 0;
@@ -634,6 +727,12 @@ public partial class MainWindow : Window
         var window = new SettingsWindow(_settings, ResetAllStats) { Owner = this };
         if (window.ShowDialog() == true)
         {
+            var wasPersisting = _persistenceEnabled;
+            _persistenceEnabled = _settings.PersistStats;
+            if (wasPersisting && !_persistenceEnabled)
+            {
+                SaveHistoryIfNeeded(force: true);
+            }
             _monitor.SnapshotIntervalSeconds = _settings.RefreshIntervalSeconds;
             _monitor.ExcludeLocalTraffic = _settings.ExcludeLocalTraffic;
             _monitor.NetworkInterfaceId = _settings.NetworkInterfaceId;
@@ -677,6 +776,16 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(SettingsButton, L("Settings"));
         AutomationProperties.SetName(AboutButton, L("About"));
         AutomationProperties.SetName(TimeRangeBox, L("TimeRange"));
+        CustomStartLabel.Text = L("RangeStart");
+        CustomEndLabel.Text = L("RangeEnd");
+        CustomRangeApplyButton.Content = L("RangeApply");
+        CustomRangeHint.Text = L("RangeHint");
+        CustomHistoryHint.Text = L("HourlyHistoryHint");
+        AutomationProperties.SetName(CustomStartPicker, L("RangeStart"));
+        AutomationProperties.SetName(CustomEndPicker, L("RangeEnd"));
+        AutomationProperties.SetName(CustomStartHourBox, L("RangeStartHour"));
+        AutomationProperties.SetName(CustomEndHourBox, L("RangeEndHour"));
+        UpdateCustomRangeControls();
         NetworkSectionTitleText.Text = L("PhysicalNetworkTraffic");
         AttributionSectionTitleText.Text = L("AttributedProcessTraffic");
         ProcessTableTitleText.Text = L("ProcessDetails");
@@ -700,9 +809,12 @@ public partial class MainWindow : Window
             {
                 new TimeRangeItem(TrafficTimeRange.Session, L("RangeSession")),
                 new TimeRangeItem(TrafficTimeRange.Today, L("RangeToday")),
+                new TimeRangeItem(TrafficTimeRange.ThisMonth, L("RangeThisMonth")),
+                new TimeRangeItem(TrafficTimeRange.LastMonth, L("RangeLastMonth")),
                 new TimeRangeItem(TrafficTimeRange.Last7Days, L("Range7Days")),
                 new TimeRangeItem(TrafficTimeRange.Last30Days, L("Range30Days")),
-                new TimeRangeItem(TrafficTimeRange.All, L("RangeAll"))
+                new TimeRangeItem(TrafficTimeRange.All, L("RangeAll")),
+                new TimeRangeItem(TrafficTimeRange.Custom, L("RangeCustom"))
             };
             TimeRangeBox.SelectedItem = TimeRangeBox.Items.Cast<TimeRangeItem>().First(item => item.Range == _settings.TimeRange);
         }
@@ -717,28 +829,24 @@ public partial class MainWindow : Window
 
     private void SaveHistoryIfNeeded(bool force)
     {
-        if (!_settings.PersistStats)
+        lock (_snapshotDispatchGate)
         {
-            return;
-        }
+            if (!force && (!_persistenceEnabled || Stopwatch.GetTimestamp() < _nextStatsSaveTimestamp))
+            {
+                return;
+            }
 
-        var nowTimestamp = Stopwatch.GetTimestamp();
-        if (!force && nowTimestamp < _nextStatsSaveTimestamp)
-        {
-            return;
-        }
+            if (force)
+            {
+                _historySaver.Flush();
+            }
+            else
+            {
+                _historySaver.RequestSave();
+            }
 
-        if (force)
-        {
-            _historySaver.Flush();
+            _nextStatsSaveTimestamp = Stopwatch.GetTimestamp() + (long)(TimeSpan.FromMinutes(1).TotalSeconds * Stopwatch.Frequency);
         }
-        else
-        {
-            _historySaver.RequestSave();
-        }
-
-        _lastPersistenceErrorText = _historySaver.LastError;
-        _nextStatsSaveTimestamp = Stopwatch.GetTimestamp() + (long)(TimeSpan.FromMinutes(1).TotalSeconds * Stopwatch.Frequency);
     }
 
     private WinForms.NotifyIcon CreateTrayIcon()
