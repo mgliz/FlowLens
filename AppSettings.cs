@@ -20,6 +20,8 @@ public sealed class AppSettings
     public bool StartMinimized { get; set; }
     public bool CloseToTray { get; set; } = true;
     public bool AlwaysOnTop { get; set; }
+    public bool CheckUpdatesAutomatically { get; set; } = true;
+    public DateTime LastUpdateCheckUtc { get; set; }
     public bool PersistStats { get; set; } = true;
     public bool HideIdleRows { get; set; }
     public bool UseBitsPerSecond { get; set; }

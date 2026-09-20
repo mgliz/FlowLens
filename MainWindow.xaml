@@ -38,7 +38,13 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel x:Name="BrandPanel">
-                <TextBlock Text="FlowLens" FontSize="29" FontWeight="SemiBold"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="FlowLens" FontSize="29" FontWeight="SemiBold"/>
+                    <Border x:Name="BuildBadge" Visibility="Collapsed" Background="{DynamicResource AccentSoftBrush}"
+                            CornerRadius="4" Padding="7,3" Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="BuildBadgeText" FontSize="11" Foreground="{DynamicResource AccentBrush}"/>
+                    </Border>
+                </StackPanel>
                 <TextBlock x:Name="SubtitleText"
                            Margin="1,5,0,0"
                            Foreground="{DynamicResource MutedBrush}"
@@ -119,8 +125,36 @@
             <StackPanel x:Name="CustomRangePanel" Grid.Row="2" Grid.ColumnSpan="2"
                         Margin="0,12,0,0" Visibility="Collapsed">
                 <StackPanel.Resources>
-                    <!-- Keep calendar template buttons compact despite the app's implicit button style. -->
                     <Style TargetType="DatePicker">
+                        <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+                        <Setter Property="Height" Value="40"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DatePicker">
+                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="5" Padding="8,0,4,0">
+                                        <Grid x:Name="PART_Root">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="30"/></Grid.ColumnDefinitions>
+                                            <DatePickerTextBox x:Name="PART_TextBox" Background="Transparent" BorderThickness="0"
+                                                               Foreground="{TemplateBinding Foreground}" Padding="0" VerticalContentAlignment="Center">
+                                                <DatePickerTextBox.Template>
+                                                    <ControlTemplate TargetType="DatePickerTextBox">
+                                                        <ScrollViewer x:Name="PART_ContentHost" Focusable="False" VerticalAlignment="Center"/>
+                                                    </ControlTemplate>
+                                                </DatePickerTextBox.Template>
+                                            </DatePickerTextBox>
+                                            <Button x:Name="PART_Button" Grid.Column="1" Style="{StaticResource ToolbarButton}"
+                                                    Width="28" Height="30" MinWidth="0" MinHeight="0" FontSize="15"
+                                                    Background="Transparent" BorderBrush="Transparent" Foreground="{DynamicResource MutedBrush}"
+                                                    Content="&#xE787;" Focusable="False"/>
+                                            <Popup x:Name="PART_Popup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"/>
+                                        </Grid>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
                         <Style.Resources>
                             <Style TargetType="Button">
                                 <Setter Property="MinWidth" Value="0"/>
@@ -130,29 +164,55 @@
                         </Style.Resources>
                     </Style>
                 </StackPanel.Resources>
-                <WrapPanel VerticalAlignment="Center">
-                    <TextBlock x:Name="CustomStartLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <DatePicker x:Name="CustomStartPicker" Width="145" Margin="0,0,14,0"
-                                Foreground="Black" Background="White" SelectedDateFormat="Short"
-                                DateValidationError="CustomDate_ValidationError"
-                                TextBoxBase.TextChanged="CustomDate_TextChanged" CalendarOpened="CustomCalendar_Opened"/>
-                    <ComboBox x:Name="CustomStartHourBox" Width="78" Margin="0,0,14,0"/>
-                    <TextBlock x:Name="CustomEndLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <DatePicker x:Name="CustomEndPicker" Width="145" Margin="0,0,14,0"
-                                Foreground="Black" Background="White" SelectedDateFormat="Short"
-                                DateValidationError="CustomDate_ValidationError"
-                                TextBoxBase.TextChanged="CustomDate_TextChanged" CalendarOpened="CustomCalendar_Opened"/>
-                    <ComboBox x:Name="CustomEndHourBox" Width="78" Margin="0,0,14,0"/>
-                    <Button x:Name="CustomRangeApplyButton" MinWidth="75" Padding="12,5"
-                            Click="CustomRangeApply_Click"/>
-                    <TextBlock x:Name="CustomRangeHint" VerticalAlignment="Center" Margin="12,0,0,0"
-                               Foreground="{DynamicResource MutedBrush}"/>
-                </WrapPanel>
-                <TextBlock x:Name="CustomRangeAppliedText" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                <TextBlock x:Name="CustomHistoryHint" Margin="0,4,0,0" TextWrapping="Wrap"
-                           Foreground="{DynamicResource MutedBrush}"/>
-                <TextBlock x:Name="CustomRangeError" Margin="0,4,0,0" TextWrapping="Wrap"
-                           Visibility="Collapsed" Foreground="{DynamicResource WarningBrush}"/>
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="CustomRangeEditButton" Padding="12,6" Background="{DynamicResource SubtlePanelBrush}"
+                            BorderBrush="{DynamicResource LineBrush}" Click="CustomRangeEdit_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE787;" FontFamily="Segoe Fluent Icons" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,9,0"/>
+                            <TextBlock x:Name="CustomRangeAppliedText" FontSize="13" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="CustomRangeEditText" Margin="16,0,0,0" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock x:Name="CustomHistoryHint" Margin="12,0,0,0" FontSize="11"
+                               VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
+                </StackPanel>
+                <Border x:Name="CustomRangeEditor" Visibility="Collapsed" HorizontalAlignment="Left" Width="660"
+                        Margin="0,10,0,0" Padding="20,16" Background="{DynamicResource PanelBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="8">
+                    <StackPanel>
+                        <TextBlock x:Name="CustomRangeTitle" FontSize="15" FontWeight="SemiBold"/>
+                        <Grid Margin="0,16,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock x:Name="CustomStartLabel" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,7"/>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                    <DatePicker x:Name="CustomStartPicker" Margin="0,0,8,0" SelectedDateFormat="Short"
+                                                DateValidationError="CustomDate_ValidationError" TextBoxBase.TextChanged="CustomDate_TextChanged" CalendarOpened="CustomCalendar_Opened"/>
+                                    <ComboBox x:Name="CustomStartHourBox" Grid.Column="1" Height="40"/>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock x:Name="CustomEndLabel" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,7"/>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                    <DatePicker x:Name="CustomEndPicker" Margin="0,0,8,0" SelectedDateFormat="Short"
+                                                DateValidationError="CustomDate_ValidationError" TextBoxBase.TextChanged="CustomDate_TextChanged" CalendarOpened="CustomCalendar_Opened"/>
+                                    <ComboBox x:Name="CustomEndHourBox" Grid.Column="1" Height="40"/>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="CustomRangeError" Margin="0,0,0,12" TextWrapping="Wrap" Visibility="Collapsed" Foreground="{DynamicResource WarningBrush}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="CustomRangeHint" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button x:Name="CustomRangeCancelButton" Click="CustomRangeCancel_Click" Margin="0,0,8,0" Background="Transparent"/>
+                                <Button x:Name="CustomRangeApplyButton" Click="CustomRangeApply_Click" Background="{DynamicResource AccentBrush}" BorderThickness="0">
+                                    <TextBlock x:Name="CustomRangeApplyText" Foreground="{DynamicResource AccentForegroundBrush}"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Grid>
 

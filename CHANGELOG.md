@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.6-preview.1 - Local test build
+
+- Collapse custom-period controls into a compact summary with a themed editor, Cancel/Escape behavior, and concise history guidance.
+- Label local prerelease builds explicitly as test builds in the main window and About.
+- Check official GitHub Releases manually or once per day at startup, with a fallback for anonymous API rate limits.
+- Download and verify the official SHA-256/EXE version before updating in place; preserve history/settings, retain an EXE backup and roll back failed startup.
+- Offer an explicitly labeled switch from a test build to the official stable release.
+- Add update-service and isolated installer regression coverage; no new official Release is published for this preview.
+
 ## 1.0.5 - 2026-09-19
 
 - Add custom start/end dates and hours, shared by process and physical-adapter statistics.

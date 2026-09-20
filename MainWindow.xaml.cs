@@ -43,6 +43,8 @@ public partial class MainWindow : Window
     private string _lastPersistenceErrorText = string.Empty;
     private string _startupRegistrationErrorText = string.Empty;
     private bool _startupRepairInProgress;
+    private GitHubUpdateResult? _availableUpdate;
+    private readonly CancellationTokenSource _updateCheckCancellation = new();
     private string _sortMember = nameof(TrafficRow.TotalRate);
     private ListSortDirection _sortDirection = ListSortDirection.Descending;
     private MonitorSnapshotEventArgs? _pendingUiSnapshot;
@@ -90,6 +92,7 @@ public partial class MainWindow : Window
             IsAdministrator() ? StatusSeverity.Success : StatusSeverity.Warning);
         _monitor.Start();
         _ = RepairStartupRegistrationAsync();
+        _ = CheckForUpdatesAtStartupAsync();
 
         if (_settings.StartMinimized || Environment.GetCommandLineArgs().Any(arg => arg.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
         {
@@ -161,6 +164,7 @@ public partial class MainWindow : Window
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _updateCheckCancellation.Cancel();
         _monitor.SnapshotReady -= Monitor_SnapshotReady;
         _monitor.Dispose();
         _historySaver.Dispose();
@@ -207,6 +211,16 @@ public partial class MainWindow : Window
         if (e.Key == Key.F1)
         {
             OpenAbout();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape && CustomRangeEditor.Visibility == Visibility.Visible)
+        {
+            if (CustomStartPicker.IsDropDownOpen || CustomEndPicker.IsDropDownOpen)
+                CustomStartPicker.IsDropDownOpen = CustomEndPicker.IsDropDownOpen = false;
+            else
+                CloseCustomRangeEditor();
             e.Handled = true;
             return;
         }
@@ -584,6 +598,7 @@ public partial class MainWindow : Window
 
         _settings.TimeRange = item.Range;
         UpdateCustomRangeControls();
+        CustomRangeEditor.Visibility = item.Range == TrafficTimeRange.Custom ? Visibility.Visible : Visibility.Collapsed;
         _settings.Save();
         RebuildDisplayedRows();
         UpdateMetrics();
@@ -604,10 +619,31 @@ public partial class MainWindow : Window
         CustomStartHourBox.SelectedIndex = _settings.CustomStartHour;
         CustomEndHourBox.SelectedIndex = _settings.CustomEndHour;
         CustomRangeAppliedText.Text = string.Format(L("RangeApplied"),
-            _settings.CustomStartTime, _settings.CustomEndTime.AddHours(1));
+            _settings.CustomStartTime, _settings.CustomEndTime.AddHours(1).AddTicks(-1));
         CustomRangeError.Visibility = Visibility.Collapsed;
         _invalidCustomDates.Clear();
+        _restoringCustomDates.Clear();
     }
+
+    private void CustomRangeEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if (CustomRangeEditor.Visibility == Visibility.Visible) CloseCustomRangeEditor();
+        else
+        {
+            UpdateCustomRangeControls();
+            CustomRangeEditor.Visibility = Visibility.Visible;
+            CustomStartPicker.Focus();
+        }
+    }
+
+    private void CloseCustomRangeEditor()
+    {
+        CustomStartPicker.IsDropDownOpen = CustomEndPicker.IsDropDownOpen = false;
+        UpdateCustomRangeControls();
+        CustomRangeEditor.Visibility = Visibility.Collapsed;
+    }
+
+    private void CustomRangeCancel_Click(object sender, RoutedEventArgs e) => CloseCustomRangeEditor();
 
     private void CustomDate_ValidationError(object? sender, DatePickerDateValidationErrorEventArgs e)
     {
@@ -674,6 +710,7 @@ public partial class MainWindow : Window
         _settings.CustomEndHour = CustomEndHourBox.SelectedIndex;
         _settings.Save();
         UpdateCustomRangeControls();
+        CustomRangeEditor.Visibility = Visibility.Collapsed;
         RebuildDisplayedRows();
         UpdateMetrics();
     }
@@ -753,8 +790,28 @@ public partial class MainWindow : Window
 
     private void OpenAbout()
     {
-        var window = new AboutWindow(_settings) { Owner = this };
+        var window = new AboutWindow(_settings, ExitApplication, _availableUpdate) { Owner = this };
         window.ShowDialog();
+    }
+
+    private async Task CheckForUpdatesAtStartupAsync()
+    {
+        if (!_settings.CheckUpdatesAutomatically ||
+            DateTime.UtcNow - _settings.LastUpdateCheckUtc < TimeSpan.FromDays(1)) return;
+        try
+        {
+            using var service = new GitHubUpdateService();
+            _availableUpdate = await service.CheckAsync(AppBuildInfo.Version, AppBuildInfo.IsTestBuild, _updateCheckCancellation.Token);
+            if (_isExiting) return;
+            _settings.LastUpdateCheckUtc = DateTime.UtcNow;
+            _settings.Save();
+            if (_availableUpdate?.CanInstall == true)
+            {
+                AboutButton.ToolTip = string.Format(L(AppBuildInfo.IsTestBuild ? "StableAvailable" : "UpdateAvailable"), _availableUpdate.Release.Version.Core);
+                AboutButton.SetResourceReference(System.Windows.Controls.Control.BorderBrushProperty, "AccentBrush");
+            }
+        }
+        catch { /* Background update failures must not interrupt capture. Manual checks report errors. */ }
     }
 
     private void ApplyDisplaySettings()
@@ -765,6 +822,9 @@ public partial class MainWindow : Window
 
     private void ApplyLocalization()
     {
+        BuildBadge.Visibility = AppBuildInfo.IsTestBuild ? Visibility.Visible : Visibility.Collapsed;
+        BuildBadgeText.Text = L("TestBuild");
+        Title = AppBuildInfo.IsTestBuild ? $"FlowLens · {L("TestBuild")}" : "FlowLens";
         SubtitleText.Text = L("AppSubtitle");
         SearchPlaceholderText.Text = L("SearchPlaceholder");
         SearchBox.ToolTip = L("SearchPlaceholder");
@@ -778,9 +838,14 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(TimeRangeBox, L("TimeRange"));
         CustomStartLabel.Text = L("RangeStart");
         CustomEndLabel.Text = L("RangeEnd");
-        CustomRangeApplyButton.Content = L("RangeApply");
+        CustomRangeApplyText.Text = L("RangeApply");
         CustomRangeHint.Text = L("RangeHint");
-        CustomHistoryHint.Text = L("HourlyHistoryHint");
+        CustomHistoryHint.Text = L("HourlyHistoryShort");
+        CustomHistoryHint.ToolTip = L("HourlyHistoryHint");
+        CustomRangeEditText.Text = L("RangeEdit");
+        CustomRangeTitle.Text = L("RangeEditorTitle");
+        CustomRangeCancelButton.Content = L("Cancel");
+        CustomRangeEditButton.ToolTip = L("RangeEditorTitle");
         AutomationProperties.SetName(CustomStartPicker, L("RangeStart"));
         AutomationProperties.SetName(CustomEndPicker, L("RangeEnd"));
         AutomationProperties.SetName(CustomStartHourBox, L("RangeStartHour"));
