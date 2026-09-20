@@ -21,7 +21,7 @@ public static class Localizer
             ["CurrentRate"] = "Current rate",
             ["ReceiveRate"] = "Receive rate",
             ["SendRate"] = "Send rate",
-            ["PeriodTotal"] = "Selected range total",
+            ["PeriodTotal"] = "Range total",
             ["AdapterUnavailable"] = "Adapter unavailable",
             ["Settings"] = "Settings",
             ["About"] = "About",

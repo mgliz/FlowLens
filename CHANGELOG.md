@@ -3,8 +3,9 @@
 ## 1.0.6-preview.3 - Local test build
 
 - Place the complete custom-range summary between the app title and toolbar; move toolbar controls to a second row when localized content needs more space.
-- Fold statistics section titles into their total columns; align physical totals and rates in two rows, with the adapter beside its title and range caption beside the total.
+- Fold statistics section titles into their total columns; align physical totals and rates in two rows, with the range caption and adapter together in the top line.
 - Remove the legacy daily-history hint from the header.
+- Give the custom-range editor and date calendars the same fade transition as existing dropdowns.
 - Add horizontal text margins so process names and executable paths no longer touch the table edge.
 
 ## 1.0.6-preview.2 - Local test build
