@@ -1,5 +1,20 @@
 # Changelog
 
+**English** | [简体中文](CHANGELOG.zh-CN.md)
+
+## 1.0.6 - 2026-09-20
+
+- Check official GitHub Releases from About or once per day at startup, with a fallback for anonymous API rate limits.
+- Download and verify update checksums and executable versions, then update at the existing path after a normal exit. Keep an EXE backup and restore it if startup fails.
+- Distinguish test builds from stable releases and provide an explicit way to switch to the official release.
+- Simplify the header and statistics groups, move the complete custom-period summary into the toolbar area, and add horizontal spacing to process names.
+- Edit custom dates and hours in a compact popup with consistent fade transitions; cancel or dismiss it to restore the applied period.
+- Make calendar day/month/year views, selected and disabled dates, tooltips, and primary buttons readable in both light and dark themes.
+- Fix corrected date input, adapter-name display in Settings, persistent toolbar outlines, and empty space in About's update panel.
+- Provide English-first documentation with separate Simplified Chinese pages and language-switch links.
+
+[Release notes and download](docs/releases/v1.0.6.md)
+
 ## 1.0.6-preview.4 - Local test build
 
 - Remove the selected-range caption and adapter name from the physical network traffic summary.
