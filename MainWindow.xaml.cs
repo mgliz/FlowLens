@@ -80,7 +80,7 @@ public partial class MainWindow : Window
         ApplyColumnVisibility();
         ApplySort();
         RebuildDisplayedRows();
-        ApplyResponsiveLayout(Width);
+        ApplyResponsiveLayout();
     }
 
     private string L(string key) => Localizer.T(_settings.Language, key);
@@ -189,7 +189,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        ApplyResponsiveLayout(e.NewSize.Width);
         CustomRangePopup.IsOpen = false;
     }
 
@@ -232,17 +231,37 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyResponsiveLayout(double width)
+    private void HeaderGrid_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var compact = width < 1060;
-        Grid.SetRow(ToolbarPanel, compact ? 1 : 0);
-        Grid.SetColumn(ToolbarPanel, compact ? 0 : 1);
-        Grid.SetColumnSpan(ToolbarPanel, compact ? 2 : 1);
-        ToolbarPanel.HorizontalAlignment = compact
-            ? System.Windows.HorizontalAlignment.Left
-            : System.Windows.HorizontalAlignment.Right;
-        ToolbarPanel.Margin = compact ? new Thickness(0, 12, 0, 0) : new Thickness(0);
-        TrayHintText.Visibility = width < 1120 ? Visibility.Collapsed : Visibility.Visible;
+        if (IsInitialized && e.WidthChanged) ApplyResponsiveLayout();
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        // Measure localized content, including the complete applied range, before
+        // deciding which groups fit beside the brand. Never squeeze or clip dates.
+        var availableWidth = HeaderGrid.ActualWidth > 0 ? HeaderGrid.ActualWidth : Math.Max(0, Width - 64);
+        ToolbarPanel.Margin = new Thickness(0);
+        CustomRangePanel.Margin = new Thickness(0, 0, 16, 0);
+        var unconstrained = new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity);
+        BrandPanel.Measure(unconstrained);
+        ToolbarPanel.Measure(unconstrained);
+        CustomRangePanel.Measure(unconstrained);
+        var toolbarWraps = BrandPanel.DesiredSize.Width + ToolbarPanel.DesiredSize.Width
+            + CustomRangePanel.DesiredSize.Width > availableWidth;
+        var rangeWraps = BrandPanel.DesiredSize.Width + CustomRangePanel.DesiredSize.Width > availableWidth;
+
+        Grid.SetRow(ToolbarPanel, toolbarWraps ? 1 : 0);
+        Grid.SetColumn(ToolbarPanel, toolbarWraps ? 0 : 2);
+        Grid.SetColumnSpan(ToolbarPanel, toolbarWraps ? 3 : 1);
+        ToolbarPanel.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
+        ToolbarPanel.Margin = toolbarWraps ? new Thickness(0, 12, 0, 0) : new Thickness(0);
+        Grid.SetRow(CustomRangePanel, rangeWraps ? (toolbarWraps ? 2 : 1) : 0);
+        Grid.SetColumn(CustomRangePanel, rangeWraps ? 0 : 1);
+        Grid.SetColumnSpan(CustomRangePanel, rangeWraps ? 3 : (toolbarWraps ? 2 : 1));
+        CustomRangePanel.Margin = rangeWraps ? new Thickness(0, 10, 0, 0)
+            : (toolbarWraps ? new Thickness(0) : new Thickness(0, 0, 16, 0));
+        TrayHintText.Visibility = availableWidth < 1056 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void Monitor_SnapshotReady(object? sender, MonitorSnapshotEventArgs e)
@@ -637,6 +656,7 @@ public partial class MainWindow : Window
         CustomRangeError.Visibility = Visibility.Collapsed;
         _invalidCustomDates.Clear();
         _restoringCustomDates.Clear();
+        ApplyResponsiveLayout();
     }
 
     private void CustomRangeEdit_Click(object sender, RoutedEventArgs e)
@@ -891,8 +911,6 @@ public partial class MainWindow : Window
         CustomEndLabel.Text = L("RangeEnd");
         CustomRangeApplyText.Text = L("RangeApply");
         CustomRangeHint.Text = L("RangeHint");
-        CustomHistoryHint.Text = L("HourlyHistoryShort");
-        CustomHistoryHint.ToolTip = L("HourlyHistoryHint");
         CustomRangeEditText.Text = L("RangeEdit");
         CustomRangeTitle.Text = L("RangeEditorTitle");
         CustomRangeCancelButton.Content = L("Cancel");
@@ -941,6 +959,7 @@ public partial class MainWindow : Window
 
         RefreshTrayMenuText();
         UpdateMetrics();
+        ApplyResponsiveLayout();
     }
 
     private void SaveHistoryIfNeeded(bool force)
