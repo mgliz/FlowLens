@@ -11,6 +11,8 @@ CaptureLifecycleTests.Run(Check);
 MonthlyRangeTests.Run(Check);
 CustomRangeTests.Run(Check);
 HourlyHistoryTests.Run(Check);
+GitHubUpdateTests.Run(Check);
+UpdateInstallerTests.Run(Check);
 EndpointAccountingTests.Run(Check);
 const string TestInterfaceId = "test-interface";
 

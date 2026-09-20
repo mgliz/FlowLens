@@ -43,6 +43,8 @@ public partial class MainWindow : Window
     private string _lastPersistenceErrorText = string.Empty;
     private string _startupRegistrationErrorText = string.Empty;
     private bool _startupRepairInProgress;
+    private GitHubUpdateResult? _availableUpdate;
+    private readonly CancellationTokenSource _updateCheckCancellation = new();
     private string _sortMember = nameof(TrafficRow.TotalRate);
     private ListSortDirection _sortDirection = ListSortDirection.Descending;
     private MonitorSnapshotEventArgs? _pendingUiSnapshot;
@@ -78,7 +80,7 @@ public partial class MainWindow : Window
         ApplyColumnVisibility();
         ApplySort();
         RebuildDisplayedRows();
-        ApplyResponsiveLayout(Width);
+        ApplyResponsiveLayout();
     }
 
     private string L(string key) => Localizer.T(_settings.Language, key);
@@ -90,6 +92,7 @@ public partial class MainWindow : Window
             IsAdministrator() ? StatusSeverity.Success : StatusSeverity.Warning);
         _monitor.Start();
         _ = RepairStartupRegistrationAsync();
+        _ = CheckForUpdatesAtStartupAsync();
 
         if (_settings.StartMinimized || Environment.GetCommandLineArgs().Any(arg => arg.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
         {
@@ -161,6 +164,7 @@ public partial class MainWindow : Window
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _updateCheckCancellation.Cancel();
         _monitor.SnapshotReady -= Monitor_SnapshotReady;
         _monitor.Dispose();
         _historySaver.Dispose();
@@ -171,6 +175,7 @@ public partial class MainWindow : Window
 
     private void Window_StateChanged(object? sender, EventArgs e)
     {
+        CustomRangePopup.IsOpen = false;
         if (WindowState == WindowState.Minimized && _settings.CloseToTray)
         {
             HideToTray();
@@ -184,8 +189,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        ApplyResponsiveLayout(e.NewSize.Width);
+        CustomRangePopup.IsOpen = false;
     }
+
+    private void Window_LocationChanged(object? sender, EventArgs e) => CustomRangePopup.IsOpen = false;
 
     private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
@@ -211,6 +218,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.Key == Key.Escape && CustomRangePopup.IsOpen)
+        {
+            CustomRangeEditor_PreviewKeyDown(sender, e);
+            return;
+        }
+
         if (e.Key == Key.Escape && !string.IsNullOrEmpty(SearchBox.Text))
         {
             SearchBox.Clear();
@@ -218,17 +231,37 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyResponsiveLayout(double width)
+    private void HeaderGrid_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var compact = width < 1060;
-        Grid.SetRow(ToolbarPanel, compact ? 1 : 0);
-        Grid.SetColumn(ToolbarPanel, compact ? 0 : 1);
-        Grid.SetColumnSpan(ToolbarPanel, compact ? 2 : 1);
-        ToolbarPanel.HorizontalAlignment = compact
-            ? System.Windows.HorizontalAlignment.Left
-            : System.Windows.HorizontalAlignment.Right;
-        ToolbarPanel.Margin = compact ? new Thickness(0, 12, 0, 0) : new Thickness(0);
-        TrayHintText.Visibility = width < 1120 ? Visibility.Collapsed : Visibility.Visible;
+        if (IsInitialized && e.WidthChanged) ApplyResponsiveLayout();
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        // Measure localized content, including the complete applied range, before
+        // deciding which groups fit beside the brand. Never squeeze or clip dates.
+        var availableWidth = HeaderGrid.ActualWidth > 0 ? HeaderGrid.ActualWidth : Math.Max(0, Width - 64);
+        ToolbarPanel.Margin = new Thickness(0);
+        CustomRangePanel.Margin = new Thickness(0, 0, 16, 0);
+        var unconstrained = new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity);
+        BrandPanel.Measure(unconstrained);
+        ToolbarPanel.Measure(unconstrained);
+        CustomRangePanel.Measure(unconstrained);
+        var toolbarWraps = BrandPanel.DesiredSize.Width + ToolbarPanel.DesiredSize.Width
+            + CustomRangePanel.DesiredSize.Width > availableWidth;
+        var rangeWraps = BrandPanel.DesiredSize.Width + CustomRangePanel.DesiredSize.Width > availableWidth;
+
+        Grid.SetRow(ToolbarPanel, toolbarWraps ? 1 : 0);
+        Grid.SetColumn(ToolbarPanel, toolbarWraps ? 0 : 2);
+        Grid.SetColumnSpan(ToolbarPanel, toolbarWraps ? 3 : 1);
+        ToolbarPanel.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
+        ToolbarPanel.Margin = toolbarWraps ? new Thickness(0, 12, 0, 0) : new Thickness(0);
+        Grid.SetRow(CustomRangePanel, rangeWraps ? (toolbarWraps ? 2 : 1) : 0);
+        Grid.SetColumn(CustomRangePanel, rangeWraps ? 0 : 1);
+        Grid.SetColumnSpan(CustomRangePanel, rangeWraps ? 3 : (toolbarWraps ? 2 : 1));
+        CustomRangePanel.Margin = rangeWraps ? new Thickness(0, 10, 0, 0)
+            : (toolbarWraps ? new Thickness(0) : new Thickness(0, 0, 16, 0));
+        TrayHintText.Visibility = availableWidth < 1056 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void Monitor_SnapshotReady(object? sender, MonitorSnapshotEventArgs e)
@@ -462,7 +495,6 @@ public partial class MainWindow : Window
         NetworkReceiveRateText.Text = TrafficRow.FormatRate(0);
         NetworkSendRateText.Text = TrafficRow.FormatRate(0);
         NetworkBytesText.Text = TrafficRow.FormatBytes(0);
-        NetworkAdapterText.Text = L("AdapterUnavailable");
 
         if (_latestNetworkSnapshot.IsAvailable)
         {
@@ -473,7 +505,6 @@ public partial class MainWindow : Window
             NetworkReceiveRateText.Text = TrafficRow.FormatRate(_latestNetworkSnapshot.ReceiveRate);
             NetworkSendRateText.Text = TrafficRow.FormatRate(_latestNetworkSnapshot.SendRate);
             NetworkBytesText.Text = TrafficRow.FormatBytes(AddSaturating(physicalTotals.Received, physicalTotals.Sent));
-            NetworkAdapterText.Text = _latestNetworkSnapshot.InterfaceName;
         }
 
         Ipv4RateText.Text = TrafficRow.FormatRate(ipv4Rate);
@@ -584,6 +615,17 @@ public partial class MainWindow : Window
 
         _settings.TimeRange = item.Range;
         UpdateCustomRangeControls();
+        CustomRangePopup.IsOpen = false;
+        if (item.Range == TrafficTimeRange.Custom)
+        {
+            // Let the range ComboBox release its popup capture before opening ours.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_settings.TimeRange != TrafficTimeRange.Custom || !IsVisible) return;
+                CustomRangePopup.IsOpen = true;
+                CustomStartPicker.Focus();
+            }), System.Windows.Threading.DispatcherPriority.Input);
+        }
         _settings.Save();
         RebuildDisplayedRows();
         UpdateMetrics();
@@ -596,17 +638,63 @@ public partial class MainWindow : Window
         var dateLanguage = System.Windows.Markup.XmlLanguage.GetLanguage(
             System.Globalization.CultureInfo.CurrentCulture.IetfLanguageTag);
         CustomStartPicker.Language = CustomEndPicker.Language = dateLanguage;
-        CustomStartPicker.DisplayDateEnd = CustomEndPicker.DisplayDateEnd = DateTime.Today;
+        UpdateCalendarLimits();
         CustomStartPicker.SelectedDate = _settings.CustomRangeStart;
         CustomEndPicker.SelectedDate = _settings.CustomRangeEnd;
+        // SelectedDate may still equal the applied value while its textbox holds
+        // an uncommitted draft. Restore the text as well before focus moves away.
+        CustomStartPicker.Text = _settings.CustomRangeStart.ToString("d", System.Globalization.CultureInfo.CurrentCulture);
+        CustomEndPicker.Text = _settings.CustomRangeEnd.ToString("d", System.Globalization.CultureInfo.CurrentCulture);
         CustomStartHourBox.ItemsSource = CustomEndHourBox.ItemsSource =
             Enumerable.Range(0, 24).Select(hour => $"{hour:00}:00").ToArray();
         CustomStartHourBox.SelectedIndex = _settings.CustomStartHour;
         CustomEndHourBox.SelectedIndex = _settings.CustomEndHour;
         CustomRangeAppliedText.Text = string.Format(L("RangeApplied"),
-            _settings.CustomStartTime, _settings.CustomEndTime.AddHours(1));
+            _settings.CustomStartTime, _settings.CustomEndTime.AddHours(1).AddTicks(-1));
         CustomRangeError.Visibility = Visibility.Collapsed;
         _invalidCustomDates.Clear();
+        _restoringCustomDates.Clear();
+        ApplyResponsiveLayout();
+    }
+
+    private void CustomRangeEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if (CustomRangePopup.IsOpen) CloseCustomRangeEditor();
+        else
+        {
+            UpdateCustomRangeControls();
+            CustomRangePopup.IsOpen = true;
+            CustomStartPicker.Focus();
+        }
+    }
+
+    private void CloseCustomRangeEditor()
+    {
+        CustomStartPicker.IsDropDownOpen = CustomEndPicker.IsDropDownOpen = false;
+        UpdateCustomRangeControls();
+        CustomRangePopup.IsOpen = false;
+        CustomRangeEditButton.Focus();
+    }
+
+    private void CustomRangeCancel_Click(object sender, RoutedEventArgs e) => CloseCustomRangeEditor();
+
+    private void CustomRangePopup_Closed(object sender, EventArgs e)
+    {
+        CustomStartPicker.IsDropDownOpen = CustomEndPicker.IsDropDownOpen = false;
+        UpdateCustomRangeControls();
+    }
+
+    private void CustomRangeEditor_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        // Child dropdowns handle their own Escape before the whole editor closes.
+        if (CustomStartPicker.IsDropDownOpen || CustomEndPicker.IsDropDownOpen)
+            CustomStartPicker.IsDropDownOpen = CustomEndPicker.IsDropDownOpen = false;
+        else if (CustomStartHourBox.IsDropDownOpen || CustomEndHourBox.IsDropDownOpen)
+            CustomStartHourBox.IsDropDownOpen = CustomEndHourBox.IsDropDownOpen = false;
+        else
+            CloseCustomRangeEditor();
+        e.Handled = true;
     }
 
     private void CustomDate_ValidationError(object? sender, DatePickerDateValidationErrorEventArgs e)
@@ -627,15 +715,30 @@ public partial class MainWindow : Window
 
     private void CustomDate_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (sender is DatePicker picker && !_restoringCustomDates.Contains(picker) &&
-            e.OriginalSource is System.Windows.Controls.TextBox input &&
-            DateTime.TryParse(input.Text, out var date) && date.Date <= DateTime.Today)
+        if (sender is not DatePicker picker || e.OriginalSource is not System.Windows.Controls.TextBox input) return;
+        // Ignore only WPF's synchronous restoration, not a later user edit
+        // that arrives before the dispatcher's cleanup callback gets a turn.
+        if (_restoringCustomDates.Remove(picker)) return;
+        if (DateTime.TryParse(input.Text, out var date) && date.Date <= DateTime.Today)
             _invalidCustomDates.Remove(picker);
     }
 
     private void CustomCalendar_Opened(object sender, RoutedEventArgs e)
     {
-        CustomStartPicker.DisplayDateEnd = CustomEndPicker.DisplayDateEnd = DateTime.Today;
+        UpdateCalendarLimits();
+    }
+
+    private void UpdateCalendarLimits()
+    {
+        var today = DateTime.Today;
+        var monthEnd = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month));
+        foreach (var picker in new[] { CustomStartPicker, CustomEndPicker })
+        {
+            // Keep the current month's layout intact; future days remain visible but cannot be chosen.
+            picker.DisplayDateEnd = monthEnd;
+            picker.BlackoutDates.Clear();
+            picker.BlackoutDates.Add(new CalendarDateRange(today.AddDays(1), DateTime.MaxValue));
+        }
     }
 
     private bool TryReadCustomRange(out DateTime start, out DateTime end)
@@ -674,6 +777,8 @@ public partial class MainWindow : Window
         _settings.CustomEndHour = CustomEndHourBox.SelectedIndex;
         _settings.Save();
         UpdateCustomRangeControls();
+        CustomRangePopup.IsOpen = false;
+        CustomRangeEditButton.Focus();
         RebuildDisplayedRows();
         UpdateMetrics();
     }
@@ -701,7 +806,6 @@ public partial class MainWindow : Window
         NetworkReceiveRateText.Text = TrafficRow.FormatRate(0);
         NetworkSendRateText.Text = TrafficRow.FormatRate(0);
         NetworkBytesText.Text = "0 B";
-        NetworkAdapterText.Text = L("AdapterUnavailable");
         TotalRateText.Text = TrafficRow.FormatRate(0);
         TotalBytesText.Text = "0 B";
         Ipv4RateText.Text = TrafficRow.FormatRate(0);
@@ -753,8 +857,29 @@ public partial class MainWindow : Window
 
     private void OpenAbout()
     {
-        var window = new AboutWindow(_settings) { Owner = this };
+        UpdateAvailableIndicator.Visibility = Visibility.Collapsed;
+        var window = new AboutWindow(_settings, ExitApplication, _availableUpdate) { Owner = this };
         window.ShowDialog();
+    }
+
+    private async Task CheckForUpdatesAtStartupAsync()
+    {
+        if (!_settings.CheckUpdatesAutomatically ||
+            DateTime.UtcNow - _settings.LastUpdateCheckUtc < TimeSpan.FromDays(1)) return;
+        try
+        {
+            using var service = new GitHubUpdateService();
+            _availableUpdate = await service.CheckAsync(AppBuildInfo.Version, AppBuildInfo.IsTestBuild, _updateCheckCancellation.Token);
+            if (_isExiting) return;
+            _settings.LastUpdateCheckUtc = DateTime.UtcNow;
+            _settings.Save();
+            if (_availableUpdate?.CanInstall == true)
+            {
+                AboutButton.ToolTip = string.Format(L(AppBuildInfo.IsTestBuild ? "StableAvailable" : "UpdateAvailable"), _availableUpdate.Release.Version.Core);
+                UpdateAvailableIndicator.Visibility = Visibility.Visible;
+            }
+        }
+        catch { /* Background update failures must not interrupt capture. Manual checks report errors. */ }
     }
 
     private void ApplyDisplaySettings()
@@ -765,6 +890,9 @@ public partial class MainWindow : Window
 
     private void ApplyLocalization()
     {
+        BuildBadge.Visibility = AppBuildInfo.IsTestBuild ? Visibility.Visible : Visibility.Collapsed;
+        BuildBadgeText.Text = L("TestBuild");
+        Title = AppBuildInfo.IsTestBuild ? $"FlowLens · {L("TestBuild")}" : "FlowLens";
         SubtitleText.Text = L("AppSubtitle");
         SearchPlaceholderText.Text = L("SearchPlaceholder");
         SearchBox.ToolTip = L("SearchPlaceholder");
@@ -778,9 +906,12 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(TimeRangeBox, L("TimeRange"));
         CustomStartLabel.Text = L("RangeStart");
         CustomEndLabel.Text = L("RangeEnd");
-        CustomRangeApplyButton.Content = L("RangeApply");
+        CustomRangeApplyText.Text = L("RangeApply");
         CustomRangeHint.Text = L("RangeHint");
-        CustomHistoryHint.Text = L("HourlyHistoryHint");
+        CustomRangeEditText.Text = L("RangeEdit");
+        CustomRangeTitle.Text = L("RangeEditorTitle");
+        CustomRangeCancelButton.Content = L("Cancel");
+        CustomRangeEditButton.ToolTip = L("RangeEditorTitle");
         AutomationProperties.SetName(CustomStartPicker, L("RangeStart"));
         AutomationProperties.SetName(CustomEndPicker, L("RangeEnd"));
         AutomationProperties.SetName(CustomStartHourBox, L("RangeStartHour"));
@@ -792,7 +923,6 @@ public partial class MainWindow : Window
         NetworkCurrentLabelText.Text = L("CurrentRate");
         NetworkReceiveLabelText.Text = L("ReceiveRate");
         NetworkSendLabelText.Text = L("SendRate");
-        NetworkPeriodLabelText.Text = L("PeriodTotal");
         TotalLabelText.Text = L("LogicalTotalCurrent");
         Ipv4LabelText.Text = L("Ipv4Logical");
         Ipv6LabelText.Text = L("Ipv6Logical");
@@ -825,6 +955,7 @@ public partial class MainWindow : Window
 
         RefreshTrayMenuText();
         UpdateMetrics();
+        ApplyResponsiveLayout();
     }
 
     private void SaveHistoryIfNeeded(bool force)

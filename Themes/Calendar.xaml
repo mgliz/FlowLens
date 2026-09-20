@@ -1,0 +1,395 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style x:Key="FlowLensCalendarDayButtonStyle" TargetType="CalendarDayButton">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="MinWidth" Value="34"/>
+        <Setter Property="MinHeight" Value="30"/>
+        <Setter Property="Margin" Value="1"/>
+        <Setter Property="Padding" Value="2"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="ContentTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=CalendarDayButton}}"/>
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarDayButton">
+                    <Border x:Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          RecognizesAccessKey="True"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsInactive" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="0.58"/>
+                        </Trigger>
+                        <Trigger Property="IsToday" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                                <Condition Property="IsEnabled" Value="True"/>
+                                <Condition Property="IsBlackedOut" Value="False"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+                        </MultiTrigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsPressed" Value="True"/>
+                                <Condition Property="IsEnabled" Value="True"/>
+                                <Condition Property="IsBlackedOut" Value="False"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                        </MultiTrigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="1"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+                            <Setter TargetName="Root" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+                            <Setter TargetName="Root" Property="Background" Value="Transparent"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="Transparent"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="0.55"/>
+                        </Trigger>
+                        <Trigger Property="IsBlackedOut" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+                            <Setter TargetName="Root" Property="Background" Value="Transparent"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="Transparent"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="0.78"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FlowLensCalendarButtonStyle" TargetType="CalendarButton">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="MinWidth" Value="58"/>
+        <Setter Property="MinHeight" Value="42"/>
+        <Setter Property="Margin" Value="2"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="ContentTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=CalendarButton}}"/>
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarButton">
+                    <Border x:Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="5"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          RecognizesAccessKey="True"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="HasSelectedDays" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+                            <Setter TargetName="Root" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsInactive" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="0.55"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FlowLensCalendarNavButtonStyle" TargetType="Button">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Width" Value="34"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          RecognizesAccessKey="True"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+                            <Setter TargetName="Root" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+                            <Setter TargetName="Root" Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FlowLensCalendarHeaderButtonStyle"
+           TargetType="Button"
+           BasedOn="{StaticResource FlowLensCalendarNavButtonStyle}">
+        <Setter Property="Width" Value="Auto"/>
+        <Setter Property="MinWidth" Value="150"/>
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="10,0"/>
+    </Style>
+
+    <Style x:Key="FlowLensCalendarItemStyle" TargetType="CalendarItem">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarItem">
+                    <ControlTemplate.Resources>
+                        <DataTemplate x:Key="{x:Static CalendarItem.DayTitleTemplateResourceKey}">
+                            <TextBlock Margin="1,4"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       Text="{Binding}"/>
+                        </DataTemplate>
+                    </ControlTemplate.Resources>
+                    <Border x:Name="PART_Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="7"
+                            Padding="8"
+                            SnapsToDevicePixels="True">
+                        <Grid KeyboardNavigation.TabNavigation="Local">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="40"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Margin="0,0,0,5" KeyboardNavigation.TabIndex="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="PART_PreviousButton"
+                                        Grid.Column="0"
+                                        AutomationProperties.Name="Previous"
+                                        Content="&#x2039;"
+                                        FlowDirection="LeftToRight"
+                                        Style="{StaticResource FlowLensCalendarNavButtonStyle}"/>
+                                <Button x:Name="PART_HeaderButton"
+                                        Grid.Column="1"
+                                        Style="{StaticResource FlowLensCalendarHeaderButtonStyle}"/>
+                                <Button x:Name="PART_NextButton"
+                                        Grid.Column="2"
+                                        AutomationProperties.Name="Next"
+                                        Content="&#x203A;"
+                                        FlowDirection="LeftToRight"
+                                        Style="{StaticResource FlowLensCalendarNavButtonStyle}"/>
+                            </Grid>
+
+                            <Grid x:Name="PART_MonthView"
+                                  Grid.Row="1"
+                                  KeyboardNavigation.TabNavigation="Once"
+                                  KeyboardNavigation.TabIndex="1"
+                                  Visibility="Visible">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="32"/>
+                                    <RowDefinition Height="32"/>
+                                    <RowDefinition Height="32"/>
+                                    <RowDefinition Height="32"/>
+                                    <RowDefinition Height="32"/>
+                                    <RowDefinition Height="32"/>
+                                </Grid.RowDefinitions>
+                            </Grid>
+
+                            <Grid x:Name="PART_YearView"
+                                  Grid.Row="1"
+                                  KeyboardNavigation.TabNavigation="Once"
+                                  KeyboardNavigation.TabIndex="1"
+                                  Visibility="Hidden">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="48"/>
+                                    <RowDefinition Height="48"/>
+                                    <RowDefinition Height="48"/>
+                                </Grid.RowDefinitions>
+                            </Grid>
+
+                            <Border x:Name="PART_DisabledVisual"
+                                    Grid.RowSpan="2"
+                                    Background="{DynamicResource PanelBrush}"
+                                    CornerRadius="5"
+                                    IsHitTestVisible="False"
+                                    Opacity="0.55"
+                                    Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="PART_DisabledVisual" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Calendar}}" Value="Year">
+                            <Setter TargetName="PART_MonthView" Property="Visibility" Value="Hidden"/>
+                            <Setter TargetName="PART_YearView" Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Calendar}}" Value="Decade">
+                            <Setter TargetName="PART_MonthView" Property="Visibility" Value="Hidden"/>
+                            <Setter TargetName="PART_YearView" Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FlowLensCalendarStyle" TargetType="Calendar">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="CalendarDayButtonStyle" Value="{StaticResource FlowLensCalendarDayButtonStyle}"/>
+        <Setter Property="CalendarButtonStyle" Value="{StaticResource FlowLensCalendarButtonStyle}"/>
+        <Setter Property="CalendarItemStyle" Value="{StaticResource FlowLensCalendarItemStyle}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Calendar">
+                    <StackPanel x:Name="PART_Root"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                        <CalendarItem x:Name="PART_CalendarItem"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      Style="{TemplateBinding CalendarItemStyle}"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="PART_CalendarItem" Property="Opacity" Value="0.55"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

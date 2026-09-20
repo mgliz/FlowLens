@@ -37,6 +37,7 @@
                 <CheckBox x:Name="StartMinimizedBox"/>
                 <CheckBox x:Name="CloseToTrayBox"/>
                 <CheckBox x:Name="AlwaysOnTopBox"/>
+                <CheckBox x:Name="AutoUpdatesBox"/>
                 <TextBlock x:Name="StartupNoteText"
                            Style="{StaticResource SectionDescription}"
                            Margin="27,7,0,0"/>
@@ -53,6 +54,7 @@
                     <ComboBox x:Name="NetworkInterfaceBox"
                               Grid.Column="1"
                               DisplayMemberPath="DisplayName"
+                              ToolTip="{Binding SelectedItem.DisplayName, RelativeSource={RelativeSource Self}}"
                               SelectedValuePath="Id"
                               AutomationProperties.LabeledBy="{Binding ElementName=NetworkInterfaceLabel}"/>
                 </Grid>

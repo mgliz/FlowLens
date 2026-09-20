@@ -23,6 +23,7 @@ public partial class SettingsWindow : Window
         StartMinimizedBox.IsChecked = settings.StartMinimized;
         CloseToTrayBox.IsChecked = settings.CloseToTray;
         AlwaysOnTopBox.IsChecked = settings.AlwaysOnTop;
+        AutoUpdatesBox.IsChecked = settings.CheckUpdatesAutomatically;
         PersistStatsBox.IsChecked = settings.PersistStats;
         HideIdleRowsBox.IsChecked = settings.HideIdleRows;
         UseBitsPerSecondBox.IsChecked = settings.UseBitsPerSecond;
@@ -75,6 +76,7 @@ public partial class SettingsWindow : Window
         StartMinimizedBox.Content = L("StartMinimized");
         CloseToTrayBox.Content = L("CloseToTray");
         AlwaysOnTopBox.Content = L("AlwaysOnTop");
+        AutoUpdatesBox.Content = L("AutoUpdates");
         PersistStatsBox.Content = L("PersistStats");
         HideIdleRowsBox.Content = L("HideIdleRows");
         UseBitsPerSecondBox.Content = L("UseBitsPerSecond");
@@ -126,6 +128,7 @@ public partial class SettingsWindow : Window
         _settings.StartMinimized = StartMinimizedBox.IsChecked == true;
         _settings.CloseToTray = CloseToTrayBox.IsChecked == true;
         _settings.AlwaysOnTop = AlwaysOnTopBox.IsChecked == true;
+        _settings.CheckUpdatesAutomatically = AutoUpdatesBox.IsChecked == true;
         _settings.PersistStats = PersistStatsBox.IsChecked == true;
         _settings.HideIdleRows = HideIdleRowsBox.IsChecked == true;
         _settings.UseBitsPerSecond = UseBitsPerSecondBox.IsChecked == true;

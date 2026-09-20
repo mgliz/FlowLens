@@ -1,5 +1,51 @@
 # Changelog
 
+**English** | [简体中文](CHANGELOG.zh-CN.md)
+
+## 1.0.6 - 2026-09-20
+
+- Check official GitHub Releases from About or once per day at startup, with a fallback for anonymous API rate limits.
+- Download and verify update checksums and executable versions, then update at the existing path after a normal exit. Keep an EXE backup and restore it if startup fails.
+- Distinguish test builds from stable releases and provide an explicit way to switch to the official release.
+- Simplify the header and statistics groups, move the complete custom-period summary into the toolbar area, and add horizontal spacing to process names.
+- Edit custom dates and hours in a compact popup with consistent fade transitions; cancel or dismiss it to restore the applied period.
+- Make calendar day/month/year views, selected and disabled dates, tooltips, and primary buttons readable in both light and dark themes.
+- Fix corrected date input, adapter-name display in Settings, persistent toolbar outlines, and empty space in About's update panel.
+- Provide English-first documentation with separate Simplified Chinese pages and language-switch links.
+
+[Release notes and download](docs/releases/v1.0.6.md)
+
+## 1.0.6-preview.4 - Local test build
+
+- Remove the selected-range caption and adapter name from the physical network traffic summary.
+
+## 1.0.6-preview.3 - Local test build
+
+- Place the complete custom-range summary between the app title and toolbar; move toolbar controls to a second row when localized content needs more space.
+- Fold statistics section titles into their total columns; align physical totals and rates in two rows, with the range caption and adapter together in the top line.
+- Remove the legacy daily-history hint from the header.
+- Give the custom-range editor and date calendars the same fade transition as existing dropdowns.
+- Add horizontal text margins so process names and executable paths no longer touch the table edge.
+
+## 1.0.6-preview.2 - Local test build
+
+- Fix the DatePicker calendar popup's unreadable colors with complete light/dark templates for days, months, years, navigation, selection, focus, and disabled dates.
+- Show future days as disabled dates instead of leaving the rest of the month blank.
+- Move custom-period editing into a compact floating panel; cancelling or dismissing it restores the applied range.
+- Use neutral dark surfaces, a smaller header, and consolidated statistics with cumulative traffic more prominent than live rates.
+- Preserve primary-button contrast when hovering or pressing, and simplify table headers.
+- Theme hover tooltips, fix adapter names in the collapsed selection, replace the persistent update outline with a small indicator, and compact the update-status/actions layout.
+- Restore uncommitted date text on cancel and accept a valid correction even when dispatcher cleanup has not run yet.
+
+## 1.0.6-preview.1 - Local test build
+
+- Collapse custom-period controls into a compact summary with a themed editor, Cancel/Escape behavior, and concise history guidance.
+- Label local prerelease builds explicitly as test builds in the main window and About.
+- Check official GitHub Releases manually or once per day at startup, with a fallback for anonymous API rate limits.
+- Download and verify the official SHA-256/EXE version before updating in place; preserve history/settings, retain an EXE backup and roll back failed startup.
+- Offer an explicitly labeled switch from a test build to the official stable release.
+- Add update-service and isolated installer regression coverage; no new official Release is published for this preview.
+
 ## 1.0.5 - 2026-09-19
 
 - Add custom start/end dates and hours, shared by process and physical-adapter statistics.
