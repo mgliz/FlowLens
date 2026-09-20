@@ -234,16 +234,7 @@
                         <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <TextBlock x:Name="NetworkSectionTitleText" FontSize="12" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="NetworkPeriodLabelText" Grid.Column="1" Margin="10,0,0,0" FontSize="11"
-                                       VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
-                            <TextBlock x:Name="NetworkAdapterText" Grid.Column="2" Margin="10,0,0,0" FontSize="11"
-                                       Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center"
-                                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                        </Grid>
+                        <TextBlock x:Name="NetworkSectionTitleText" FontSize="12" FontWeight="SemiBold"/>
                         <TextBlock x:Name="NetworkBytesText" Text="0 B" FontSize="24" Margin="0,6,0,0"
                                    FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"/>
                     </StackPanel>

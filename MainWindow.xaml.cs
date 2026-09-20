@@ -495,7 +495,6 @@ public partial class MainWindow : Window
         NetworkReceiveRateText.Text = TrafficRow.FormatRate(0);
         NetworkSendRateText.Text = TrafficRow.FormatRate(0);
         NetworkBytesText.Text = TrafficRow.FormatBytes(0);
-        NetworkAdapterText.Text = L("AdapterUnavailable");
 
         if (_latestNetworkSnapshot.IsAvailable)
         {
@@ -506,7 +505,6 @@ public partial class MainWindow : Window
             NetworkReceiveRateText.Text = TrafficRow.FormatRate(_latestNetworkSnapshot.ReceiveRate);
             NetworkSendRateText.Text = TrafficRow.FormatRate(_latestNetworkSnapshot.SendRate);
             NetworkBytesText.Text = TrafficRow.FormatBytes(AddSaturating(physicalTotals.Received, physicalTotals.Sent));
-            NetworkAdapterText.Text = _latestNetworkSnapshot.InterfaceName;
         }
 
         Ipv4RateText.Text = TrafficRow.FormatRate(ipv4Rate);
@@ -808,7 +806,6 @@ public partial class MainWindow : Window
         NetworkReceiveRateText.Text = TrafficRow.FormatRate(0);
         NetworkSendRateText.Text = TrafficRow.FormatRate(0);
         NetworkBytesText.Text = "0 B";
-        NetworkAdapterText.Text = L("AdapterUnavailable");
         TotalRateText.Text = TrafficRow.FormatRate(0);
         TotalBytesText.Text = "0 B";
         Ipv4RateText.Text = TrafficRow.FormatRate(0);
@@ -926,7 +923,6 @@ public partial class MainWindow : Window
         NetworkCurrentLabelText.Text = L("CurrentRate");
         NetworkReceiveLabelText.Text = L("ReceiveRate");
         NetworkSendLabelText.Text = L("SendRate");
-        NetworkPeriodLabelText.Text = L("PeriodTotal");
         TotalLabelText.Text = L("LogicalTotalCurrent");
         Ipv4LabelText.Text = L("Ipv4Logical");
         Ipv6LabelText.Text = L("Ipv6Logical");

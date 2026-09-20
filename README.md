@@ -30,7 +30,7 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 
 ## Download
 
-The development branch builds **1.0.6-preview.3 (test build)**, not an official Release. Local builds show a test badge and the full prerelease version in About. The published stable download below remains 1.0.5.
+The development branch builds **1.0.6-preview.4 (test build)**, not an official Release. Local builds show a test badge and the full prerelease version in About. The published stable download below remains 1.0.5.
 
 Download the self-contained [FlowLens 1.0.5 Windows x64 package](https://github.com/mgliz/FlowLens/releases/download/v1.0.5/FlowLens-1.0.5-win-x64.zip) from [GitHub Releases](https://github.com/mgliz/FlowLens/releases/latest):
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6-preview.4 - Local test build
+
+- Remove the selected-range caption and adapter name from the physical network traffic summary.
+
 ## 1.0.6-preview.3 - Local test build
 
 - Place the complete custom-range summary between the app title and toolbar; move toolbar controls to a second row when localized content needs more space.
