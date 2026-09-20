@@ -30,7 +30,7 @@ FlowLens is a lightweight Windows traffic monitor that aggregates TCP and UDP tr
 
 ## Download
 
-The development branch builds **1.0.6-preview.1 (test build)**, not an official Release. Local builds show a test badge and the full prerelease version in About. The published stable download below remains 1.0.5.
+The development branch builds **1.0.6-preview.2 (test build)**, not an official Release. Local builds show a test badge and the full prerelease version in About. The published stable download below remains 1.0.5.
 
 Download the self-contained [FlowLens 1.0.5 Windows x64 package](https://github.com/mgliz/FlowLens/releases/download/v1.0.5/FlowLens-1.0.5-win-x64.zip) from [GitHub Releases](https://github.com/mgliz/FlowLens/releases/latest):
 
@@ -76,7 +76,7 @@ Choose **Download and update** for a newer stable version, or **Switch to offici
 
 ### Custom period
 
-The applied period appears as one compact summary. Click **Edit** to expand the editor; **Cancel** or Escape restores the applied values. The summary ends at the last minute of the selected hour (for example 10:59), while the underlying interval still includes every second before 11:00. The short legacy-history note has a tooltip with the full limitation.
+The applied period appears as one compact summary. Click **Edit** to open a floating editor without moving the statistics or table; **Cancel**, Escape, or clicking outside restores the applied values. Calendars use the app's light/dark theme, including month/year navigation and selected dates. Future dates are visible but disabled. The summary ends at the last minute of the selected hour (for example 10:59), while the underlying interval still includes every second before 11:00. The short legacy-history note has a tooltip with the full limitation.
 
 To choose a period, select **Custom period**, pick the start and end dates/hours, and click **Apply**. Both selected hours are included: 09:00 through 10:00 means [09:00, 11:00), displayed as 09:00–10:59. Selection survives restarts and applies to process totals (including IPv4/IPv6) and physical-adapter totals; rates remain live. New history uses local calendar-hour buckets. Each sampling interval is assigned to the snapshot hour, so traffic around an hour boundary can shift by one sampling interval (normally 1 second, configurable to 10); it is not per-packet timestamp reconstruction. Repeated local hours during daylight-saving changes share a bucket.
 

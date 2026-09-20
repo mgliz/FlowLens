@@ -11,13 +11,14 @@
         Closed="Window_Closed"
         StateChanged="Window_StateChanged"
         SizeChanged="Window_SizeChanged"
+        LocationChanged="Window_LocationChanged"
         PreviewKeyDown="Window_PreviewKeyDown"
         Background="{DynamicResource WindowBrush}"
         FontFamily="{DynamicResource AppFontFamily}"
         Icon="Assets/FlowLens.ico"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
-    <Grid Margin="22,18,22,14">
+    <Grid Margin="24,20,24,14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -26,7 +27,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Grid x:Name="HeaderGrid" Grid.Row="0" Margin="0,0,0,16">
+        <Grid x:Name="HeaderGrid" Grid.Row="0" Margin="0,0,0,20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -39,7 +40,7 @@
 
             <StackPanel x:Name="BrandPanel">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="FlowLens" FontSize="29" FontWeight="SemiBold"/>
+                    <TextBlock Text="FlowLens" FontSize="24" FontWeight="SemiBold"/>
                     <Border x:Name="BuildBadge" Visibility="Collapsed" Background="{DynamicResource AccentSoftBrush}"
                             CornerRadius="4" Padding="7,3" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock x:Name="BuildBadgeText" FontSize="11" Foreground="{DynamicResource AccentBrush}"/>
@@ -47,6 +48,7 @@
                 </StackPanel>
                 <TextBlock x:Name="SubtitleText"
                            Margin="1,5,0,0"
+                           FontSize="11"
                            Foreground="{DynamicResource MutedBrush}"
                            TextTrimming="CharacterEllipsis"/>
             </StackPanel>
@@ -117,10 +119,15 @@
                         Content="&#xE713;"
                         Margin="0,0,8,0"
                         Click="SettingsButton_Click"/>
+                <Grid>
                 <Button x:Name="AboutButton"
                         Style="{StaticResource ToolbarButton}"
                         Content="&#xE946;"
                         Click="AboutButton_Click"/>
+                    <Ellipse x:Name="UpdateAvailableIndicator" Width="6" Height="6" Margin="0,5,5,0"
+                             HorizontalAlignment="Right" VerticalAlignment="Top" Fill="{DynamicResource AccentBrush}"
+                             IsHitTestVisible="False" Visibility="Collapsed"/>
+                </Grid>
             </StackPanel>
             <StackPanel x:Name="CustomRangePanel" Grid.Row="2" Grid.ColumnSpan="2"
                         Margin="0,12,0,0" Visibility="Collapsed">
@@ -129,11 +136,12 @@
                         <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
                         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
                         <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
-                        <Setter Property="Height" Value="40"/>
+                        <Setter Property="Height" Value="36"/>
+                        <Setter Property="CalendarStyle" Value="{StaticResource FlowLensCalendarStyle}"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="DatePicker">
-                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                    <Border x:Name="DateBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                             BorderThickness="1" CornerRadius="5" Padding="8,0,4,0">
                                         <Grid x:Name="PART_Root">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="30"/></Grid.ColumnDefinitions>
@@ -149,23 +157,21 @@
                                                     Width="28" Height="30" MinWidth="0" MinHeight="0" FontSize="15"
                                                     Background="Transparent" BorderBrush="Transparent" Foreground="{DynamicResource MutedBrush}"
                                                     Content="&#xE787;" Focusable="False"/>
-                                            <Popup x:Name="PART_Popup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"/>
+                                            <Popup x:Name="PART_Popup" Placement="Bottom" VerticalOffset="6" StaysOpen="False" AllowsTransparency="True"/>
                                         </Grid>
                                     </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                            <Setter TargetName="DateBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Setter.Value>
                         </Setter>
-                        <Style.Resources>
-                            <Style TargetType="Button">
-                                <Setter Property="MinWidth" Value="0"/>
-                                <Setter Property="MinHeight" Value="0"/>
-                                <Setter Property="Padding" Value="0"/>
-                            </Style>
-                        </Style.Resources>
                     </Style>
                 </StackPanel.Resources>
                 <StackPanel Orientation="Horizontal">
-                    <Button x:Name="CustomRangeEditButton" Padding="12,6" Background="{DynamicResource SubtlePanelBrush}"
+                    <Button x:Name="CustomRangeEditButton" Padding="10,4" MinHeight="32" Background="Transparent"
                             BorderBrush="{DynamicResource LineBrush}" Click="CustomRangeEdit_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE787;" FontFamily="Segoe Fluent Icons" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,9,0"/>
@@ -176,215 +182,125 @@
                     <TextBlock x:Name="CustomHistoryHint" Margin="12,0,0,0" FontSize="11"
                                VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
                 </StackPanel>
-                <Border x:Name="CustomRangeEditor" Visibility="Collapsed" HorizontalAlignment="Left" Width="660"
-                        Margin="0,10,0,0" Padding="20,16" Background="{DynamicResource PanelBrush}"
-                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="8">
+                <Popup x:Name="CustomRangePopup" PlacementTarget="{Binding ElementName=CustomRangeEditButton}"
+                       Placement="Bottom" VerticalOffset="8" StaysOpen="False" AllowsTransparency="True"
+                       Closed="CustomRangePopup_Closed">
+                <Border x:Name="CustomRangeEditor" Width="480" Padding="20"
+                        Background="{DynamicResource PanelBrush}" PreviewKeyDown="CustomRangeEditor_PreviewKeyDown"
+                        BorderBrush="{DynamicResource ButtonBorderBrush}" BorderThickness="1" CornerRadius="10">
                     <StackPanel>
-                        <TextBlock x:Name="CustomRangeTitle" FontSize="15" FontWeight="SemiBold"/>
-                        <Grid Margin="0,16,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="CustomRangeTitle" FontSize="14" FontWeight="SemiBold"/>
+                        <Grid Margin="0,18,0,16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <StackPanel>
                                 <TextBlock x:Name="CustomStartLabel" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,7"/>
-                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-                                    <DatePicker x:Name="CustomStartPicker" Margin="0,0,8,0" SelectedDateFormat="Short"
+                                <StackPanel>
+                                    <DatePicker x:Name="CustomStartPicker" SelectedDateFormat="Short"
                                                 DateValidationError="CustomDate_ValidationError" TextBoxBase.TextChanged="CustomDate_TextChanged" CalendarOpened="CustomCalendar_Opened"/>
-                                    <ComboBox x:Name="CustomStartHourBox" Grid.Column="1" Height="40"/>
-                                </Grid>
+                                    <ComboBox x:Name="CustomStartHourBox" Height="34" Margin="0,8,0,0"/>
+                                </StackPanel>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock x:Name="CustomEndLabel" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,7"/>
-                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-                                    <DatePicker x:Name="CustomEndPicker" Margin="0,0,8,0" SelectedDateFormat="Short"
+                                <StackPanel>
+                                    <DatePicker x:Name="CustomEndPicker" SelectedDateFormat="Short"
                                                 DateValidationError="CustomDate_ValidationError" TextBoxBase.TextChanged="CustomDate_TextChanged" CalendarOpened="CustomCalendar_Opened"/>
-                                    <ComboBox x:Name="CustomEndHourBox" Grid.Column="1" Height="40"/>
-                                </Grid>
+                                    <ComboBox x:Name="CustomEndHourBox" Height="34" Margin="0,8,0,0"/>
+                                </StackPanel>
                             </StackPanel>
                         </Grid>
                         <TextBlock x:Name="CustomRangeError" Margin="0,0,0,12" TextWrapping="Wrap" Visibility="Collapsed" Foreground="{DynamicResource WarningBrush}"/>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock x:Name="CustomRangeHint" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0"/>
+                            <TextBlock x:Name="CustomRangeHint" FontSize="11" MaxWidth="220" HorizontalAlignment="Left" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <Button x:Name="CustomRangeCancelButton" Click="CustomRangeCancel_Click" Margin="0,0,8,0" Background="Transparent"/>
-                                <Button x:Name="CustomRangeApplyButton" Click="CustomRangeApply_Click" Background="{DynamicResource AccentBrush}" BorderThickness="0">
+                                <Button x:Name="CustomRangeCancelButton" Click="CustomRangeCancel_Click" MinWidth="64" MinHeight="32" Margin="0,0,8,0" Background="Transparent" BorderThickness="0"/>
+                                <Button x:Name="CustomRangeApplyButton" Style="{StaticResource PrimaryButton}" Click="CustomRangeApply_Click" MinWidth="64" MinHeight="32">
                                     <TextBlock x:Name="CustomRangeApplyText" Foreground="{DynamicResource AccentForegroundBrush}"/>
                                 </Button>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>
+                </Popup>
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="0,0,0,14">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <DockPanel Margin="0,0,0,7">
-                <TextBlock x:Name="NetworkSectionTitleText"
-                           Style="{StaticResource SectionHeader}"/>
-                <TextBlock x:Name="NetworkAdapterText"
-                           DockPanel.Dock="Right"
-                           HorizontalAlignment="Right"
-                           Foreground="{DynamicResource MutedBrush}"
-                           TextTrimming="CharacterEllipsis"/>
-            </DockPanel>
-
-            <Border Grid.Row="1"
-                    Style="{StaticResource MetricPanel}"
-                    Padding="16,12">
+        <Border Grid.Row="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}"
+                BorderThickness="1" CornerRadius="9" Padding="18,14" Margin="0,0,0,12">
+            <StackPanel>
+                <Grid Margin="0,0,0,12">
+                    <TextBlock x:Name="NetworkSectionTitleText" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock x:Name="NetworkAdapterText" HorizontalAlignment="Right" FontSize="11"
+                               Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
+                </Grid>
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="1.2*"/><ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0">
-                        <TextBlock x:Name="NetworkCurrentLabelText"
-                                   Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBlock x:Name="NetworkRateText"
-                                   Text="0 B/s"
-                                   Margin="0,5,0,0"
-                                   FontSize="22"
-                                   FontWeight="SemiBold"
+                    <StackPanel>
+                        <TextBlock x:Name="NetworkPeriodLabelText" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="NetworkBytesText" Text="0 B" Margin="0,4,0,0" FontSize="28"
+                                   FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="NetworkCurrentLabelText" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="NetworkRateText" Text="0 B/s" Margin="0,6,0,0" FontSize="20"
+                                   FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Margin="20,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="NetworkReceiveLabelText" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="NetworkReceiveRateText" Text="0 B/s" Margin="0,6,0,0" FontSize="20"
                                    Typography.NumeralAlignment="Tabular"/>
                     </StackPanel>
-
-                    <StackPanel Grid.Column="1" Margin="14,0,0,0">
-                        <TextBlock x:Name="NetworkReceiveLabelText"
-                                   Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBlock x:Name="NetworkReceiveRateText"
-                                   Text="0 B/s"
-                                   Margin="0,5,0,0"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AccentBrush}"
-                                   Typography.NumeralAlignment="Tabular"/>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="2" Margin="14,0,0,0">
-                        <TextBlock x:Name="NetworkSendLabelText"
-                                   Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBlock x:Name="NetworkSendRateText"
-                                   Text="0 B/s"
-                                   Margin="0,5,0,0"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AccentAltBrush}"
-                                   Typography.NumeralAlignment="Tabular"/>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="3" Margin="14,0,0,0">
-                        <TextBlock x:Name="NetworkPeriodLabelText"
-                                   Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBlock x:Name="NetworkBytesText"
-                                   Text="0 B"
-                                   Margin="0,5,0,0"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
+                    <StackPanel Grid.Column="3" Margin="20,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="NetworkSendLabelText" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="NetworkSendRateText" Text="0 B/s" Margin="0,6,0,0" FontSize="20"
                                    Typography.NumeralAlignment="Tabular"/>
                     </StackPanel>
                 </Grid>
-            </Border>
-        </Grid>
+            </StackPanel>
+        </Border>
 
-        <Grid Grid.Row="2" Margin="0,0,0,14">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <TextBlock x:Name="AttributionSectionTitleText"
-                       Style="{StaticResource SectionHeader}"
-                       Margin="0,0,0,7"/>
-
-            <Grid Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.1*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="0.9*"/>
-                </Grid.ColumnDefinitions>
-
-                <Border Grid.Column="0"
-                        Style="{StaticResource MetricPanel}"
-                        Margin="0,0,10,0">
+        <Border Grid.Row="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}"
+                BorderThickness="1" CornerRadius="9" Padding="18,14" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock x:Name="AttributionSectionTitleText" Style="{StaticResource SectionHeader}" Margin="0,0,0,12"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.2*"/><ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock x:Name="TotalLabelText"
-                                   Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBlock x:Name="TotalRateText"
-                                   Text="0 B/s"
-                                   Margin="0,6,0,0"
-                                   FontSize="24"
-                                   FontWeight="SemiBold"
-                                   Typography.NumeralAlignment="Tabular"/>
-                        <TextBlock x:Name="TotalBytesText"
-                                   Text="0 B"
-                                   Margin="0,4,0,0"
-                                   Foreground="{DynamicResource MutedBrush}"
-                                   Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock x:Name="TotalLabelText" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="TotalBytesText" Text="0 B" Margin="0,4,0,0" FontSize="23"
+                                   FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock x:Name="TotalRateText" Text="0 B/s" Margin="0,4,0,0" FontSize="12"
+                                   Foreground="{DynamicResource MutedBrush}" Typography.NumeralAlignment="Tabular"/>
                     </StackPanel>
-                </Border>
-
-                <Border Grid.Column="1"
-                        Style="{StaticResource MetricPanel}"
-                        Margin="0,0,10,0">
-                    <StackPanel>
-                        <TextBlock x:Name="Ipv4LabelText"
-                                   Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBlock x:Name="Ipv4RateText"
-                                   Text="0 B/s"
-                                   Margin="0,6,0,0"
-                                   FontSize="21"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AccentBrush}"
-                                   Typography.NumeralAlignment="Tabular"/>
-                        <TextBlock x:Name="Ipv4BytesText"
-                                   Text="0 B"
-                                   Margin="0,4,0,0"
-                                   Foreground="{DynamicResource MutedBrush}"
-                                   Typography.NumeralAlignment="Tabular"/>
+                    <StackPanel Grid.Column="1" Margin="20,0,0,0">
+                        <TextBlock x:Name="Ipv4LabelText" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="Ipv4BytesText" Text="0 B" Margin="0,4,0,0" FontSize="23"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock x:Name="Ipv4RateText" Text="0 B/s" Margin="0,4,0,0" FontSize="12"
+                                   Foreground="{DynamicResource MutedBrush}" Typography.NumeralAlignment="Tabular"/>
                     </StackPanel>
-                </Border>
-
-                <Border Grid.Column="2"
-                        Style="{StaticResource MetricPanel}"
-                        Margin="0,0,10,0">
-                    <StackPanel>
-                        <TextBlock x:Name="Ipv6LabelText"
-                                   Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBlock x:Name="Ipv6RateText"
-                                   Text="0 B/s"
-                                   Margin="0,6,0,0"
-                                   FontSize="21"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AccentAltBrush}"
-                                   Typography.NumeralAlignment="Tabular"/>
-                        <TextBlock x:Name="Ipv6BytesText"
-                                   Text="0 B"
-                                   Margin="0,4,0,0"
-                                   Foreground="{DynamicResource MutedBrush}"
-                                   Typography.NumeralAlignment="Tabular"/>
+                    <StackPanel Grid.Column="2" Margin="20,0,0,0">
+                        <TextBlock x:Name="Ipv6LabelText" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="Ipv6BytesText" Text="0 B" Margin="0,4,0,0" FontSize="23"
+                                   FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock x:Name="Ipv6RateText" Text="0 B/s" Margin="0,4,0,0" FontSize="12"
+                                   Foreground="{DynamicResource MutedBrush}" Typography.NumeralAlignment="Tabular"/>
                     </StackPanel>
-                </Border>
-
-                <Border Grid.Column="3" Style="{StaticResource MetricPanel}">
-                    <StackPanel>
-                        <TextBlock x:Name="ProcessesLabelText"
-                                   Foreground="{DynamicResource MutedBrush}"/>
-                        <TextBlock x:Name="ProcessCountText"
-                                   Text="0 / 0"
-                                   Margin="0,6,0,0"
-                                   FontSize="21"
-                                   FontWeight="SemiBold"
-                                   Typography.NumeralAlignment="Tabular"/>
+                    <StackPanel Grid.Column="3" Margin="20,0,0,0">
+                        <TextBlock x:Name="ProcessesLabelText" FontSize="12" Foreground="{DynamicResource MutedBrush}"/>
+                        <TextBlock x:Name="ProcessCountText" Text="0 / 0" Margin="0,4,0,0" FontSize="23"
+                                   FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"/>
                     </StackPanel>
-                </Border>
-            </Grid>
-        </Grid>
-
+                </Grid>
+            </StackPanel>
+        </Border>
         <Border Grid.Row="3"
                 Background="{DynamicResource PanelBrush}"
                 BorderBrush="{DynamicResource LineBrush}"

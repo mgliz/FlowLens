@@ -54,6 +54,7 @@
                     <ComboBox x:Name="NetworkInterfaceBox"
                               Grid.Column="1"
                               DisplayMemberPath="DisplayName"
+                              ToolTip="{Binding SelectedItem.DisplayName, RelativeSource={RelativeSource Self}}"
                               SelectedValuePath="Id"
                               AutomationProperties.LabeledBy="{Binding ElementName=NetworkInterfaceLabel}"/>
                 </Grid>

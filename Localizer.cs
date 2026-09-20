@@ -8,7 +8,7 @@ public static class Localizer
     {
         ["en-US"] = new Dictionary<string, string>
         {
-            ["AppSubtitle"] = "Per-process TCP / UDP traffic on the selected adapter, split by IPv4 / IPv6",
+            ["AppSubtitle"] = "Network activity · IPv4 / IPv6",
             ["SearchPlaceholder"] = "Search process, PID, or path",
             ["ClearSearch"] = "Clear search",
             ["TimeRange"] = "Statistics time range",
@@ -38,7 +38,7 @@ public static class Localizer
             ["Close"] = "Close",
             ["Reset"] = "Reset",
             ["TotalCurrent"] = "Total / current",
-            ["LogicalTotalCurrent"] = "Attributed total / current",
+            ["LogicalTotalCurrent"] = "Selected range total",
             ["NetworkTotalCurrent"] = "Network total / current",
             ["Ipv4Logical"] = "IPv4 attributed",
             ["Ipv6Logical"] = "IPv6 attributed",
@@ -149,7 +149,7 @@ public static class Localizer
         },
         ["zh-CN"] = new Dictionary<string, string>
         {
-            ["AppSubtitle"] = "按所选网卡统计进程 TCP / UDP 流量，并区分 IPv4 / IPv6",
+            ["AppSubtitle"] = "网络流量监测 · IPv4 / IPv6",
             ["SearchPlaceholder"] = "搜索进程、PID 或路径",
             ["ClearSearch"] = "清除搜索",
             ["TimeRange"] = "统计时间范围",
@@ -179,7 +179,7 @@ public static class Localizer
             ["Close"] = "关闭",
             ["Reset"] = "重置",
             ["TotalCurrent"] = "总量 / 当前",
-            ["LogicalTotalCurrent"] = "归因总量 / 当前",
+            ["LogicalTotalCurrent"] = "所选时段总量",
             ["NetworkTotalCurrent"] = "网卡总量 / 当前",
             ["Ipv4Logical"] = "IPv4 归因流量",
             ["Ipv6Logical"] = "IPv6 归因流量",

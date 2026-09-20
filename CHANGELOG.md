@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.6-preview.2 - Local test build
+
+- Fix the DatePicker calendar popup's unreadable colors with complete light/dark templates for days, months, years, navigation, selection, focus, and disabled dates.
+- Show future days as disabled dates instead of leaving the rest of the month blank.
+- Move custom-period editing into a compact floating panel; cancelling or dismissing it restores the applied range.
+- Use neutral dark surfaces, a smaller header, and consolidated statistics with cumulative traffic more prominent than live rates.
+- Preserve primary-button contrast when hovering or pressing, and simplify table headers.
+- Theme hover tooltips, fix adapter names in the collapsed selection, replace the persistent update outline with a small indicator, and compact the update-status/actions layout.
+- Restore uncommitted date text on cancel and accept a valid correction even when dispatcher cleanup has not run yet.
+
 ## 1.0.6-preview.1 - Local test build
 
 - Collapse custom-period controls into a compact summary with a themed editor, Cancel/Escape behavior, and concise history guidance.

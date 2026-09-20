@@ -68,22 +68,30 @@
         </Border>
 
         <Border Grid.Row="2" Style="{StaticResource MetricPanel}" Padding="18" Margin="0,12,0,0">
-            <StackPanel>
-                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <StackPanel>
                         <TextBlock x:Name="UpdatesTitleText" FontWeight="SemiBold"/>
                         <TextBlock x:Name="UpdatesSourceText" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0"/>
                     </StackPanel>
-                    <Button x:Name="CheckUpdatesButton" Grid.Column="1" Click="CheckUpdatesButton_Click"/>
-                </Grid>
-                <TextBlock x:Name="UpdateStatusText" TextWrapping="Wrap" Margin="0,12,0,0" Foreground="{DynamicResource MutedBrush}"/>
-                <ProgressBar x:Name="UpdateProgressBar" Height="4" Margin="0,10,0,0" Visibility="Collapsed" Maximum="100"/>
-                <Button x:Name="InstallUpdateButton" HorizontalAlignment="Right" Margin="0,12,0,0" Visibility="Collapsed"
-                        Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource AccentForegroundBrush}"
-                        BorderThickness="0" Click="InstallUpdateButton_Click">
+                    <Button x:Name="CheckUpdatesButton" Grid.Column="1" HorizontalAlignment="Right" Click="CheckUpdatesButton_Click"/>
+                <TextBlock x:Name="UpdateStatusText" Grid.Row="1" TextWrapping="Wrap" Margin="0,10,16,0"
+                           VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <ProgressBar x:Name="UpdateProgressBar" Grid.Row="2" Grid.ColumnSpan="2" Height="4" Margin="0,12,0,0" Visibility="Collapsed" Maximum="100"/>
+                <Button x:Name="InstallUpdateButton" Grid.Row="1" Grid.Column="1" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,10,0,0" Visibility="Collapsed"
+                        Click="InstallUpdateButton_Click">
                     <TextBlock x:Name="InstallUpdateText" Foreground="{DynamicResource AccentForegroundBrush}"/>
                 </Button>
-            </StackPanel>
+            </Grid>
         </Border>
 
         <Grid Grid.Row="3" Margin="0,17,0,0">
